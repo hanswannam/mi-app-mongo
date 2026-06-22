@@ -1,7 +1,20 @@
-import { MongoClient, ObjectId } from "mongodb";
-
-const MAX_IMAGEN_BASE64 = 2_000_000; // ~1.5 MB de imagen real, ya comprimida en el navegador
-const SESION_DURACION_MS = 1000 * 60 * 60 * 24 * 30; // 30 días
+import { jsonResponse, texto, soloDigitos, normalizarUrl, leerImagen } from "./lib/utils.js";
+import { bytesAHex, generarSalt, hashConSalt, firmarSesion } from "./lib/crypto.js";
+import {
+  SESION_DURACION_MS,
+  cookieSesion,
+  COOKIE_LOGOUT,
+  obtenerConfig,
+  obtenerSesion
+} from "./lib/sesion.js";
+import {
+  parseObjectId,
+  withUsuarios,
+  withTarjetas,
+  withCategorias,
+  withEventos,
+  withInvitaciones
+} from "./lib/db.js";
 
 const CATEGORIAS_DEFECTO = [
   "Tecnología",
@@ -24,183 +37,6 @@ const CATEGORIAS_DEFECTO = [
 ];
 
 const TIPOS_EVENTO = ["vista", "compartido", "descarga"];
-
-function jsonResponse(data, status = 200, headers = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json", ...headers }
-  });
-}
-
-function texto(valor) {
-  return (valor || "").trim();
-}
-
-function soloDigitos(valor) {
-  return (valor || "").replace(/\D/g, "");
-}
-
-// "empresa.com" no es una URL válida para usar en un href (el navegador la
-// resuelve como ruta relativa al propio sitio en vez de abrir el sitio
-// externo). Si no trae protocolo, se le agrega https:// antes de guardarla.
-function normalizarUrl(valor) {
-  const v = texto(valor).replace(/\s+/g, "");
-  if (!v) return "";
-  if (/^https?:\/\//i.test(v)) return v;
-  return `https://${v}`;
-}
-
-function leerImagen(valor, nombreCampo) {
-  if (!valor) return "";
-  if (typeof valor !== "string" || !valor.startsWith("data:image/")) {
-    throw new Error(`El campo '${nombreCampo}' debe ser una imagen válida.`);
-  }
-  if (valor.length > MAX_IMAGEN_BASE64) {
-    throw new Error(`La imagen de '${nombreCampo}' es demasiado grande. Usa una más liviana.`);
-  }
-  return valor;
-}
-
-function parseObjectId(id) {
-  try {
-    return new ObjectId(id);
-  } catch {
-    return null;
-  }
-}
-
-// --- Criptografía (Web Crypto, disponible nativamente en Workers) ---
-
-function bytesAHex(buffer) {
-  return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function hexABytes(hex) {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-  }
-  return bytes;
-}
-
-function generarSalt() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return bytesAHex(bytes);
-}
-
-async function hashConSalt(valor, saltHex) {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(valor), "PBKDF2", false, ["deriveBits"]);
-  const derivado = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: hexABytes(saltHex), iterations: 100000, hash: "SHA-256" },
-    keyMaterial,
-    256
-  );
-  return bytesAHex(derivado);
-}
-
-async function firmarSesion(payload, secreto) {
-  const data = JSON.stringify(payload);
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(secreto), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const firma = bytesAHex(await crypto.subtle.sign("HMAC", key, enc.encode(data)));
-  return `${btoa(data)}.${firma}`;
-}
-
-async function verificarSesion(token, secreto) {
-  if (!token) return null;
-  const [dataB64, firma] = token.split(".");
-  if (!dataB64 || !firma) return null;
-
-  let data;
-  try {
-    data = atob(dataB64);
-  } catch {
-    return null;
-  }
-
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(secreto), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const firmaEsperada = bytesAHex(await crypto.subtle.sign("HMAC", key, enc.encode(data)));
-  if (firmaEsperada !== firma) return null;
-
-  const payload = JSON.parse(data);
-  if (payload.exp && Date.now() > payload.exp) return null;
-  return payload;
-}
-
-function leerCookie(request, nombre) {
-  const header = request.headers.get("Cookie") || "";
-  for (const parte of header.split(";")) {
-    const idx = parte.indexOf("=");
-    if (idx === -1) continue;
-    if (parte.slice(0, idx).trim() === nombre) {
-      return decodeURIComponent(parte.slice(idx + 1).trim());
-    }
-  }
-  return null;
-}
-
-function cookieSesion(token) {
-  return `sesion=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESION_DURACION_MS / 1000}`;
-}
-
-const COOKIE_LOGOUT = "sesion=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
-
-// Cloudflare tiene dos formas de inyectar secrets: como variable de entorno
-// plana (env.X es un string) o como binding de "Secrets Store" (env.X es un
-// objeto con .get() async). Soportamos ambas para no depender de cuál esté
-// disponible en el dashboard.
-async function leerSecretoBinding(binding) {
-  if (!binding) return null;
-  if (typeof binding === "string") return binding;
-  if (typeof binding.get === "function") return await binding.get();
-  return null;
-}
-
-async function obtenerConfig(env) {
-  const [mongoUri, mongoDatabase, sessionSecret] = await Promise.all([
-    leerSecretoBinding(env.MONGO_URI),
-    leerSecretoBinding(env.MONGO_DATABASE),
-    leerSecretoBinding(env.SESSION_SECRET)
-  ]);
-  return { mongoUri, mongoDatabase, sessionSecret };
-}
-
-async function obtenerSesion(request, env) {
-  const { sessionSecret } = await obtenerConfig(env);
-  if (!sessionSecret) return null;
-  const token = leerCookie(request, "sesion");
-  return verificarSesion(token, sessionSecret);
-}
-
-// --- Mongo ---
-// Se conecta y se cierra dentro de cada request: mantener un MongoClient
-// cacheado entre requests deja temporizadores de monitoreo en segundo plano
-// huérfanos cuando termina la request, y el runtime de Workers cancela la
-// siguiente request al detectarlos como "código que nunca responde".
-async function withCollection(env, nombreColeccion, fn) {
-  const { mongoUri, mongoDatabase } = await obtenerConfig(env);
-  if (!mongoUri || !mongoDatabase) {
-    throw new Error("Faltan variables de entorno MONGO_URI o MONGO_DATABASE.");
-  }
-
-  const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 10000 });
-  try {
-    await client.connect();
-    const collection = client.db(mongoDatabase).collection(nombreColeccion);
-    return await fn(collection);
-  } finally {
-    await client.close();
-  }
-}
-
-const withUsuarios = (env, fn) => withCollection(env, "usuarios", fn);
-const withTarjetas = (env, fn) => withCollection(env, "tarjetas", fn);
-const withCategorias = (env, fn) => withCollection(env, "categorias", fn);
-const withEventos = (env, fn) => withCollection(env, "eventos", fn);
-const withInvitaciones = (env, fn) => withCollection(env, "invitaciones", fn);
 
 function infoUsuarioPublica(usuario) {
   return {
