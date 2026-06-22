@@ -192,6 +192,87 @@
             line-height: 1;
             padding: 0 4px;
         }
+
+        .resumen-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 14px;
+        }
+
+        .resumen-box {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+
+        .resumen-box .num {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .resumen-box .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .graficas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+        }
+
+        .grafica-box h3 {
+            font-size: 13px;
+            font-weight: 700;
+            margin: 0 0 12px;
+        }
+
+        .barra-fila {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .barra-mes {
+            width: 48px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .barra-track {
+            flex: 1;
+            background: var(--bg);
+            border-radius: 6px;
+            height: 16px;
+            overflow: hidden;
+        }
+
+        .barra-fill {
+            background: var(--accent);
+            height: 100%;
+            border-radius: 6px;
+        }
+
+        .barra-total {
+            width: 28px;
+            text-align: right;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .avatar-mini-admin {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            object-fit: cover;
+            vertical-align: middle;
+            background: var(--bg);
+            border: 1px solid var(--border);
+        }
     </style>
 </head>
 <body>
@@ -199,6 +280,16 @@
         <p><a class="volver" href="/">← Volver a la app</a></p>
         <h1>Panel de administrador</h1>
         <p class="placeholder-text" style="margin: 0;">Usuarios y categorías de Billetera Virtual.</p>
+
+        <section>
+            <h2>Resumen general</h2>
+            <div id="resumen-contenido"><p class="placeholder-text">Cargando...</p></div>
+        </section>
+
+        <section>
+            <h2>Métricas mensuales</h2>
+            <div id="graficas-contenido"><p class="placeholder-text">Cargando...</p></div>
+        </section>
 
         <section>
             <h2>Usuarios registrados</h2>
@@ -222,6 +313,73 @@
             }[c]));
         }
 
+        // --- Resumen general y métricas ---
+
+        function renderResumen(r) {
+            const contenido = document.getElementById("resumen-contenido");
+            const boxes = [
+                ["Usuarios registrados", r.totalUsuarios],
+                ["Tarjetas creadas", r.totalTarjetas],
+                ["Tarjetas activas", r.totalTarjetasActivas],
+                ["Tarjetas compartidas", r.totalTarjetasCompartidas],
+                ["Escaneos OCR", r.totalEscaneosOcr],
+                ["Invitaciones pendientes", r.totalInvitacionesPendientes]
+            ];
+            contenido.innerHTML = `
+                <div class="resumen-grid">
+                    ${boxes.map(([label, num]) => `
+                        <div class="resumen-box">
+                            <div class="num">${num}</div>
+                            <div class="label">${escapeHtml(label)}</div>
+                        </div>
+                    `).join("")}
+                </div>
+            `;
+        }
+
+        function renderMiniGrafica(titulo, serie) {
+            if (serie.length === 0) {
+                return `<div class="grafica-box"><h3>${escapeHtml(titulo)}</h3><p class="placeholder-text" style="font-size:12px;">Sin datos todavía.</p></div>`;
+            }
+            const maximo = Math.max(...serie.map((p) => p.total), 1);
+            return `
+                <div class="grafica-box">
+                    <h3>${escapeHtml(titulo)}</h3>
+                    ${serie.map((p) => `
+                        <div class="barra-fila">
+                            <span class="barra-mes">${escapeHtml(p.mes)}</span>
+                            <span class="barra-track"><span class="barra-fill" style="width:${(p.total / maximo) * 100}%;"></span></span>
+                            <span class="barra-total">${p.total}</span>
+                        </div>
+                    `).join("")}
+                </div>
+            `;
+        }
+
+        function renderGraficas(r) {
+            document.getElementById("graficas-contenido").innerHTML = `
+                <div class="graficas-grid">
+                    ${renderMiniGrafica("Usuarios nuevos por mes", r.usuariosPorMes)}
+                    ${renderMiniGrafica("Tarjetas creadas por mes", r.tarjetasPorMes)}
+                    ${renderMiniGrafica("Tarjetas compartidas por mes", r.compartidosPorMes)}
+                    ${renderMiniGrafica("Activaciones por mes", r.activacionesPorMes)}
+                </div>
+            `;
+        }
+
+        async function cargarResumen() {
+            try {
+                const r = await fetch("/api/admin/resumen");
+                if (!r.ok) throw new Error(`Error ${r.status}`);
+                const data = await r.json();
+                renderResumen(data);
+                renderGraficas(data);
+            } catch (error) {
+                document.getElementById("resumen-contenido").innerHTML = `<p class="placeholder-text">Error al cargar el resumen: ${escapeHtml(error.message)}</p>`;
+                document.getElementById("graficas-contenido").innerHTML = "";
+            }
+        }
+
         // --- Usuarios ---
 
         function renderUsuarios(usuarios) {
@@ -236,13 +394,16 @@
                 <div class="tabla-wrap">
                     <table>
                         <thead>
-                            <tr><th>Teléfono</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Registrado</th><th>Último acceso</th><th></th></tr>
+                            <tr><th></th><th>Teléfono</th><th>Nombre</th><th>Empresa</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Registrado</th><th>Último acceso</th><th></th></tr>
                         </thead>
                         <tbody>
                             ${usuarios.map((u) => `
                                 <tr>
+                                    <td>${u.avatarMini ? `<img class="avatar-mini-admin" src="${u.avatarMini}" alt="">` : ""}</td>
                                     <td>${escapeHtml(u.telefono)}</td>
                                     <td>${escapeHtml(u.nombre)}</td>
+                                    <td>${escapeHtml(u.empresa || "—")}</td>
+                                    <td>${escapeHtml(u.email || "—")}</td>
                                     <td>${escapeHtml(u.rol)}</td>
                                     <td>${u.estado === "suspendido" ? "Suspendido" : "Activo"}</td>
                                     <td>${new Date(u.creadoEn).toLocaleDateString("es-GT")}</td>
@@ -436,6 +597,7 @@
             }
         });
 
+        cargarResumen();
         cargarUsuarios();
         cargarCategorias();
     </script>

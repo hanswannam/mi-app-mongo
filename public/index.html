@@ -293,6 +293,13 @@ label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
     <div class="field"><label for="login-telefono">Teléfono</label><input id="login-telefono" name="telefono" type="tel" required></div>
     <div class="field"><label for="login-dpi">DPI (contraseña)</label><input id="login-dpi" name="dpi" type="password" required></div>
     <button type="submit" class="btn btn-block">Entrar</button>
+    <button type="button" class="btn-ghost" id="btn-abrir-recuperar" style="display:block; margin:10px auto 0; font-size:13px;">¿Olvidaste tu acceso?</button>
+  </form>
+  <form id="form-recuperar" style="display:none;">
+    <p class="auth-hint" style="margin-top:0;">Ingresa tu teléfono registrado. Te ayudaremos a recuperar el acceso por WhatsApp.</p>
+    <div class="field"><label for="recuperar-telefono">Teléfono</label><input id="recuperar-telefono" name="telefono" type="tel" required></div>
+    <button type="submit" class="btn btn-block">Solicitar acceso por WhatsApp</button>
+    <button type="button" class="btn-ghost" id="btn-cerrar-recuperar" style="display:block; margin:10px auto 0; font-size:13px;">Volver a iniciar sesión</button>
   </form>
   <form id="form-registro" style="display:none;">
     <div class="field"><label for="registro-nombre">Nombre completo</label><input id="registro-nombre" name="nombre" type="text" required></div>

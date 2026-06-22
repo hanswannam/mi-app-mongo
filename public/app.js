@@ -122,6 +122,7 @@ document.querySelectorAll(".auth-tab").forEach((btn) => {
     btn.classList.add("active");
     document.getElementById("form-login").style.display = btn.dataset.tab === "login" ? "block" : "none";
     document.getElementById("form-registro").style.display = btn.dataset.tab === "registro" ? "block" : "none";
+    document.getElementById("form-recuperar").style.display = "none";
     document.getElementById("auth-message").innerHTML = "";
   });
 });
@@ -148,6 +149,36 @@ document.getElementById("form-registro").addEventListener("submit", async (e) =>
     if (!r.ok) throw new Error(data.error || "No se pudo crear la cuenta.");
     usuarioActual = data; mostrarApp();
   } catch (error) { msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`; }
+});
+
+// Sin una API de WhatsApp Business/Twilio, el servidor no puede enviar un
+// mensaje por su cuenta. Esto solo confirma que la cuenta existe y abre
+// WhatsApp con el mensaje ya escrito hacia un administrador, que completa
+// el reseteo con el botón "Resetear DPI" que ya existe en /admin.
+document.getElementById("btn-abrir-recuperar").addEventListener("click", () => {
+  document.getElementById("form-login").style.display = "none";
+  document.getElementById("form-recuperar").style.display = "block";
+  document.getElementById("auth-message").innerHTML = "";
+});
+document.getElementById("btn-cerrar-recuperar").addEventListener("click", () => {
+  document.getElementById("form-recuperar").style.display = "none";
+  document.getElementById("form-login").style.display = "block";
+  document.getElementById("auth-message").innerHTML = "";
+});
+document.getElementById("form-recuperar").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const telefono = e.target.telefono.value;
+  const msg = document.getElementById("auth-message");
+  msg.innerHTML = "";
+  try {
+    const r = await fetchConLimite(`/api/auth/recuperar/${encodeURIComponent(telefono)}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "No se pudo procesar la solicitud.");
+    const mensaje = `Hola, olvidé el acceso a mi cuenta de Billetera Virtual. Mi número registrado es ${telefono}. ¿Me ayudas a restablecerlo?`;
+    const wa = whatsappUrl(data.telefonoSoporte, mensaje);
+    if (wa) window.open(wa, "_blank");
+    msg.innerHTML = '<p class="message success">Te ayudamos a abrir WhatsApp con tu solicitud. Envíala para que un administrador te ayude.</p>';
+  } catch (error) { msg.innerHTML = `<p class="message error">${escapeHtml(mensajeDeError(error))}</p>`; }
 });
 
 function reiniciarEstadoApp() {
