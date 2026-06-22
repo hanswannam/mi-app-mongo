@@ -5,9 +5,11 @@ let categorias = [];
 let vistaContactos = "mis"; // "mis" | "directorio"
 let filtroActivo = { inicio: "todos", contactos: "todos" };
 let capturas = { frente: "", reverso: "" };
+let avatarMiniBase64 = "";
 let ladoActivo = "frente";
 let editandoId = null;
 let detalleActualId = null;
+let detalleActualData = null;
 let detalleEsDirectorio = false;
 let detalleFlipped = false;
 
@@ -222,9 +224,8 @@ function accionesRapidas(c) {
 
 function filaContacto(c, esDirectorio) {
   const meta = [c.cargo, c.empresa].filter(Boolean).join(" · ");
-  const avatar = c.fotoPerfil || c.imagenFrente
-    ? `<img src="${c.fotoPerfil || c.imagenFrente}" alt="">`
-    : iniciales(c.nombre);
+  const fuenteAvatar = c.avatarMini || c.fotoPerfil || c.imagenFrente;
+  const avatar = fuenteAvatar ? `<img src="${fuenteAvatar}" alt="">` : iniciales(c.nombre);
   return `
     <div class="contact-row" data-id="${c._id}" data-directorio="${esDirectorio ? "1" : "0"}">
       <div class="avatar">${avatar}</div>
@@ -359,10 +360,22 @@ function buscarContactoPorId(id) {
   return contactos.find((c) => c._id === id) || directorio.find((c) => c._id === id);
 }
 
-function abrirDetalle(id, esDirectorio) {
-  const c = buscarContactoPorId(id);
+async function abrirDetalle(id, esDirectorio) {
+  // La lista solo trae una miniatura liviana; el detalle necesita las fotos
+  // completas (frente/reverso), así que se piden aparte, solo para esta
+  // tarjeta puntual.
+  let c;
+  try {
+    const r = await fetch(`/api/tarjetas/${id}`, { cache: "no-store" });
+    if (!r.ok) throw new Error();
+    c = await r.json();
+  } catch {
+    c = buscarContactoPorId(id);
+  }
   if (!c) return;
+
   detalleActualId = id;
+  detalleActualData = c;
   detalleEsDirectorio = esDirectorio;
   detalleFlipped = false;
 
@@ -420,7 +433,7 @@ document.getElementById("detalle-flip-inner").addEventListener("click", () => {
 });
 
 document.getElementById("btn-favorito-detalle").addEventListener("click", async () => {
-  const c = buscarContactoPorId(detalleActualId);
+  const c = detalleActualData;
   if (!c) return;
   const nuevoValor = !c.favorito;
   try {
@@ -445,20 +458,20 @@ function datosTarjetaParaEnvio(c) {
 
 document.getElementById("btn-volver-detalle").addEventListener("click", () => mostrarPantalla(detalleEsDirectorio ? "contactos" : "contactos"));
 document.getElementById("btn-compartir-detalle").addEventListener("click", () => {
-  const c = buscarContactoPorId(detalleActualId);
+  const c = detalleActualData;
   if (!c) return;
   const texto = `${c.nombre}${c.empresa ? " - " + c.empresa : ""}${c.telefono ? " - " + c.telefono : ""}`;
   if (navigator.share) navigator.share({ title: c.nombre, text: texto }).catch(() => {});
   else { navigator.clipboard?.writeText(texto); alert("Datos del contacto copiados."); }
 });
 document.getElementById("btn-editar-detalle").addEventListener("click", () => {
-  const c = buscarContactoPorId(detalleActualId);
-  if (c) iniciarEdicion(c);
+  if (detalleActualData) iniciarEdicion(detalleActualData);
 });
 
 // ---------- Escaneo ----------
 function iniciarEscaneo() {
   capturas = { frente: "", reverso: "" };
+  avatarMiniBase64 = "";
   ladoActivo = "frente";
   editandoId = null;
   document.getElementById("dot-frente").style.display = "none";
@@ -503,6 +516,27 @@ function detectarOrientacion(src) {
   });
 }
 
+// Miniatura chica (para avatares en listas) a partir de la foto del frente
+// ya comprimida. Las listas (Inicio/Contactos) usan esto en vez de la foto
+// completa para no descargar cientos de KB por tarjeta solo para mostrar un
+// avatar pequeño.
+function generarMiniatura(dataUrlOrigen, maxLado = 120, calidad = 0.6) {
+  return new Promise((resolve) => {
+    if (!dataUrlOrigen) { resolve(""); return; }
+    const img = new Image();
+    img.onload = () => {
+      const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", calidad));
+    };
+    img.onerror = () => resolve("");
+    img.src = dataUrlOrigen;
+  });
+}
+
 function comprimirImagen(file, maxAncho = 1200, calidad = 0.75) {
   return new Promise((resolve, reject) => {
     const lector = new FileReader();
@@ -530,6 +564,7 @@ document.getElementById("input-captura").addEventListener("change", async (e) =>
   try {
     const base64 = await comprimirImagen(file);
     capturas[ladoActivo] = base64;
+    if (ladoActivo === "frente") avatarMiniBase64 = await generarMiniatura(base64);
     await refrescarViewfinder();
     document.getElementById(`dot-${ladoActivo}`).style.display = "inline-block";
     document.getElementById("btn-continuar-escaneo").disabled = !capturas.frente;
@@ -570,6 +605,7 @@ document.querySelectorAll(".form-thumbs .thumb").forEach((thumb) => {
 document.getElementById("input-thumb-frente").addEventListener("change", async (e) => {
   if (!e.target.files[0]) return;
   capturas.frente = await comprimirImagen(e.target.files[0]);
+  avatarMiniBase64 = await generarMiniatura(capturas.frente);
   actualizarThumb("frente", capturas.frente);
   e.target.value = "";
 });
@@ -618,6 +654,7 @@ document.getElementById("btn-volver-formulario").addEventListener("click", () =>
 function iniciarEdicion(c) {
   editandoId = c._id;
   capturas = { frente: c.imagenFrente || "", reverso: c.imagenReverso || "" };
+  avatarMiniBase64 = c.avatarMini || "";
   document.getElementById("formulario-titulo").textContent = "Editar contacto";
   document.getElementById("form-message").innerHTML = "";
   const form = document.getElementById("form-contacto");
@@ -657,7 +694,7 @@ document.getElementById("btn-guardar-contacto").addEventListener("click", async 
     etiqueta: etiquetaActiva ? etiquetaActiva.dataset.etiqueta : "",
     favorito: document.getElementById("c-favorito").checked,
     esMiTarjeta: document.getElementById("c-mitarjeta").checked,
-    imagenFrente: capturas.frente, imagenReverso: capturas.reverso
+    imagenFrente: capturas.frente, imagenReverso: capturas.reverso, avatarMini: avatarMiniBase64
   };
 
   btn.disabled = true; btn.textContent = "Guardando...";
@@ -685,15 +722,24 @@ async function registrarEvento(id, tipo) {
   try { await fetch(`/api/eventos-tarjeta/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipo }) }); } catch {}
 }
 
-function renderMiTarjeta() {
+async function renderMiTarjeta() {
   const cont = document.getElementById("mitarjeta-contenido");
-  const t = miTarjetaActual();
+  const referencia = miTarjetaActual();
 
-  if (!t) {
+  if (!referencia) {
     cont.innerHTML = estadoVacio("💳", "Todavía no tienes una tarjeta personal.", "Edita o crea un contacto y marca \"Esta es mi tarjeta personal\" para activarla aquí.") +
       `<button type="button" class="btn btn-block" id="btn-crear-mitarjeta">Crear mi tarjeta</button>`;
     document.getElementById("btn-crear-mitarjeta").addEventListener("click", iniciarEscaneo);
     return;
+  }
+
+  // La lista solo trae una miniatura; aquí se necesita la foto completa.
+  let t = referencia;
+  try {
+    const r = await fetch(`/api/tarjetas/${referencia._id}`, { cache: "no-store" });
+    if (r.ok) t = await r.json();
+  } catch {
+    // Si falla, se usa la versión liviana de la lista (sin foto completa) para no dejar la pantalla en blanco.
   }
 
   const enlace = `${location.origin}/t?id=${t._id}`;

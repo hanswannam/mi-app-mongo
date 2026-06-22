@@ -438,13 +438,25 @@ async function handleActualizarUsuario(request, env) {
 
 // --- Tarjetas (privadas por usuario) ---
 
+// Las fotos de frente/reverso/perfil pueden pesar varios cientos de KB cada
+// una en base64. Mandarlas completas en una lista de N tarjetas hacía que la
+// respuesta llegara a pesar más de 1 MB y se sintiera "trabada" para cargar,
+// sobre todo en datos móviles. Las listas excluyen esas imágenes pesadas y
+// usan "avatarMini" (una miniatura chica, generada en el navegador) en su
+// lugar; el detalle/edición de una tarjeta puntual sí trae las imágenes
+// completas vía GET /api/tarjetas/:id.
+const PROYECCION_SIN_IMAGENES_PESADAS = { imagenFrente: 0, imagenReverso: 0, fotoPerfil: 0 };
+
 async function handleListTarjetas(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
   try {
     const tarjetas = await withTarjetas(env, (collection) =>
-      collection.find({ propietarioTelefono: sesion.telefono }).sort({ creadoEn: -1 }).toArray()
+      collection
+        .find({ propietarioTelefono: sesion.telefono }, { projection: PROYECCION_SIN_IMAGENES_PESADAS })
+        .sort({ creadoEn: -1 })
+        .toArray()
     );
     return jsonResponse(tarjetas);
   } catch (error) {
@@ -495,10 +507,12 @@ async function handleCreateTarjeta(request, env) {
   let imagenFrente;
   let imagenReverso;
   let fotoPerfil;
+  let avatarMini;
   try {
     imagenFrente = leerImagen(body.imagenFrente, "imagen del frente");
     imagenReverso = leerImagen(body.imagenReverso, "imagen del reverso");
     fotoPerfil = leerImagen(body.fotoPerfil, "foto de perfil");
+    avatarMini = leerImagen(body.avatarMini, "miniatura de avatar");
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
   }
@@ -510,6 +524,7 @@ async function handleCreateTarjeta(request, env) {
     imagenFrente,
     imagenReverso,
     fotoPerfil,
+    avatarMini,
     vistas: 0,
     compartidos: 0,
     descargas: 0,
@@ -559,6 +574,7 @@ async function handleUpdateTarjeta(request, env, id) {
     if (body.imagenFrente) cambios.imagenFrente = leerImagen(body.imagenFrente, "imagen del frente");
     if (body.imagenReverso) cambios.imagenReverso = leerImagen(body.imagenReverso, "imagen del reverso");
     if (body.fotoPerfil) cambios.fotoPerfil = leerImagen(body.fotoPerfil, "foto de perfil");
+    if (body.avatarMini) cambios.avatarMini = leerImagen(body.avatarMini, "miniatura de avatar");
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
   }
@@ -597,11 +613,35 @@ async function handleDirectorio(request, env) {
 
   try {
     const tarjetas = await withTarjetas(env, (collection) =>
-      collection.find({}, { projection: { propietarioTelefono: 0 } }).sort({ creadoEn: -1 }).toArray()
+      collection
+        .find({}, { projection: { propietarioTelefono: 0, ...PROYECCION_SIN_IMAGENES_PESADAS } })
+        .sort({ creadoEn: -1 })
+        .toArray()
     );
     return jsonResponse(tarjetas);
   } catch (error) {
     return jsonResponse({ error: "Error al consultar el directorio.", message: error.message }, 500);
+  }
+}
+
+// Una tarjeta puntual con sus imágenes completas (frente/reverso/perfil),
+// para el detalle y la edición. Cualquier usuario autenticado puede verla
+// (igual que en el directorio), pero solo se revela quién es el dueño si es
+// el propio usuario.
+async function handleGetTarjeta(request, env, id) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const objectId = parseObjectId(id);
+  if (!objectId) return jsonResponse({ error: "ID de tarjeta inválido." }, 400);
+
+  try {
+    const tarjeta = await withTarjetas(env, (collection) => collection.findOne({ _id: objectId }));
+    if (!tarjeta) return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
+    if (tarjeta.propietarioTelefono !== sesion.telefono) delete tarjeta.propietarioTelefono;
+    return jsonResponse(tarjeta);
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar la tarjeta.", message: error.message }, 500);
   }
 }
 
@@ -975,6 +1015,7 @@ export default {
     if (pathname === "/api/tarjetas" && metodo === "POST") return handleCreateTarjeta(request, env);
 
     const matchTarjetaId = pathname.match(/^\/api\/tarjetas\/([^/]+)$/);
+    if (matchTarjetaId && metodo === "GET") return handleGetTarjeta(request, env, decodeURIComponent(matchTarjetaId[1]));
     if (matchTarjetaId && metodo === "PUT") return handleUpdateTarjeta(request, env, decodeURIComponent(matchTarjetaId[1]));
 
     const matchEstadisticas = pathname.match(/^\/api\/tarjetas\/([^/]+)\/estadisticas$/);
