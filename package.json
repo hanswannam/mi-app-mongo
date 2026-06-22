@@ -1,8 +1,7 @@
 {
   "name": "billetera",
   "version": "1.0.0",
-  "description": "Aplicación web completa billetera",
-  "main": "index.html",
+  "description": "Billetera Virtual: app de tarjetas de presentación con login, OCR (OpenAI) y panel admin, sobre Cloudflare Workers + MongoDB Atlas",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
