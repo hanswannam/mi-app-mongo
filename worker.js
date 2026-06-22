@@ -23,6 +23,8 @@ const CATEGORIAS_DEFECTO = [
   "Otros"
 ];
 
+const TIPOS_EVENTO = ["vista", "compartido", "descarga"];
+
 function jsonResponse(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -187,6 +189,17 @@ async function withCollection(env, nombreColeccion, fn) {
 const withUsuarios = (env, fn) => withCollection(env, "usuarios", fn);
 const withTarjetas = (env, fn) => withCollection(env, "tarjetas", fn);
 const withCategorias = (env, fn) => withCollection(env, "categorias", fn);
+const withEventos = (env, fn) => withCollection(env, "eventos", fn);
+
+function infoUsuarioPublica(usuario) {
+  return {
+    telefono: usuario.telefono,
+    nombre: usuario.nombre,
+    rol: usuario.rol,
+    tieneApiKey: Boolean(usuario.openaiApiKey),
+    fotoPerfil: usuario.fotoPerfil || ""
+  };
+}
 
 // --- Autenticación ---
 
@@ -212,6 +225,7 @@ async function handleRegistro(request, env) {
   if (dpi.length < 8) return jsonResponse({ error: "El DPI no es válido." }, 400);
 
   try {
+    let usuarioNuevo;
     await withUsuarios(env, async (collection) => {
       const existente = await collection.findOne({ telefono });
       if (existente) {
@@ -219,23 +233,21 @@ async function handleRegistro(request, env) {
       }
       const salt = generarSalt();
       const dpiHash = await hashConSalt(dpi, salt);
-      await collection.insertOne({
+      usuarioNuevo = {
         telefono,
         nombre,
         dpiHash,
         dpiSalt: salt,
         rol: "usuario",
         openaiApiKey: "",
+        fotoPerfil: "",
         creadoEn: new Date()
-      });
+      };
+      await collection.insertOne(usuarioNuevo);
     });
 
     const token = await firmarSesion({ telefono, rol: "usuario", exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
-    return jsonResponse(
-      { telefono, nombre, rol: "usuario", tieneApiKey: false },
-      201,
-      { "Set-Cookie": cookieSesion(token) }
-    );
+    return jsonResponse(infoUsuarioPublica(usuarioNuevo), 201, { "Set-Cookie": cookieSesion(token) });
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
   }
@@ -272,11 +284,7 @@ async function handleLogin(request, env) {
     }
 
     const token = await firmarSesion({ telefono, rol: usuario.rol, exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
-    return jsonResponse(
-      { telefono, nombre: usuario.nombre, rol: usuario.rol, tieneApiKey: Boolean(usuario.openaiApiKey) },
-      200,
-      { "Set-Cookie": cookieSesion(token) }
-    );
+    return jsonResponse(infoUsuarioPublica(usuario), 200, { "Set-Cookie": cookieSesion(token) });
   } catch (error) {
     return jsonResponse({ error: "Error al iniciar sesión.", message: error.message }, 500);
   }
@@ -293,13 +301,7 @@ async function handleYo(request, env) {
   try {
     const usuario = await withUsuarios(env, (collection) => collection.findOne({ telefono: sesion.telefono }));
     if (!usuario) return jsonResponse({ error: "No autenticado." }, 401);
-
-    return jsonResponse({
-      telefono: usuario.telefono,
-      nombre: usuario.nombre,
-      rol: usuario.rol,
-      tieneApiKey: Boolean(usuario.openaiApiKey)
-    });
+    return jsonResponse(infoUsuarioPublica(usuario));
   } catch (error) {
     return jsonResponse({ error: "Error al consultar la sesión.", message: error.message }, 500);
   }
@@ -328,9 +330,10 @@ async function handleGuardarApiKey(request, env) {
   }
 }
 
-// Edición del propio perfil: nombre, teléfono (usuario de login) y/o DPI
-// (contraseña). Siempre exige el DPI actual para confirmar el cambio. Si el
-// teléfono cambia, también migra el propietario de sus tarjetas guardadas.
+// Edición del propio perfil: nombre, teléfono (usuario de login), DPI
+// (contraseña) y/o foto de perfil. Siempre exige el DPI actual para
+// confirmar el cambio. Si el teléfono cambia, también migra el
+// propietario de sus tarjetas guardadas.
 async function handleActualizarUsuario(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
@@ -356,6 +359,13 @@ async function handleActualizarUsuario(request, env) {
   const telefonoNuevo = soloDigitos(body.telefono);
   const dpiNuevo = soloDigitos(body.dpiNuevo);
 
+  let fotoPerfilNueva;
+  try {
+    fotoPerfilNueva = body.fotoPerfil ? leerImagen(body.fotoPerfil, "foto de perfil") : undefined;
+  } catch (error) {
+    return jsonResponse({ error: error.message }, 400);
+  }
+
   try {
     const resultado = await withUsuarios(env, async (collection) => {
       const usuario = await collection.findOne({ telefono: sesion.telefono });
@@ -366,6 +376,7 @@ async function handleActualizarUsuario(request, env) {
 
       const cambios = {};
       if (nombreNuevo) cambios.nombre = nombreNuevo;
+      if (fotoPerfilNueva !== undefined) cambios.fotoPerfil = fotoPerfilNueva;
 
       let telefonoAnterior = null;
       if (telefonoNuevo && telefonoNuevo !== usuario.telefono) {
@@ -405,21 +416,11 @@ async function handleActualizarUsuario(request, env) {
       );
     }
 
-    const usuarioActualizado = resultado.usuario;
     const token = await firmarSesion(
-      { telefono: usuarioActualizado.telefono, rol: usuarioActualizado.rol, exp: Date.now() + SESION_DURACION_MS },
+      { telefono: resultado.usuario.telefono, rol: resultado.usuario.rol, exp: Date.now() + SESION_DURACION_MS },
       sessionSecret
     );
-    return jsonResponse(
-      {
-        telefono: usuarioActualizado.telefono,
-        nombre: usuarioActualizado.nombre,
-        rol: usuarioActualizado.rol,
-        tieneApiKey: Boolean(usuarioActualizado.openaiApiKey)
-      },
-      200,
-      { "Set-Cookie": cookieSesion(token) }
-    );
+    return jsonResponse(infoUsuarioPublica(resultado.usuario), 200, { "Set-Cookie": cookieSesion(token) });
   } catch (error) {
     return jsonResponse({ error: "Error al actualizar tu cuenta.", message: error.message }, 500);
   }
@@ -441,7 +442,10 @@ async function handleListTarjetas(request, env) {
   }
 }
 
+const ETIQUETAS_VALIDAS = ["cliente", "proveedor", "aliado"];
+
 function camposTarjeta(body) {
+  const etiqueta = texto(body.etiqueta).toLowerCase();
   return {
     nombre: texto(body.nombre),
     empresa: texto(body.empresa),
@@ -456,6 +460,8 @@ function camposTarjeta(body) {
     tiktok: texto(body.tiktok),
     twitter: texto(body.twitter),
     categoria: texto(body.categoria),
+    etiqueta: ETIQUETAS_VALIDAS.includes(etiqueta) ? etiqueta : "",
+    favorito: Boolean(body.favorito),
     esMiTarjeta: Boolean(body.esMiTarjeta)
   };
 }
@@ -478,9 +484,11 @@ async function handleCreateTarjeta(request, env) {
 
   let imagenFrente;
   let imagenReverso;
+  let fotoPerfil;
   try {
     imagenFrente = leerImagen(body.imagenFrente, "imagen del frente");
     imagenReverso = leerImagen(body.imagenReverso, "imagen del reverso");
+    fotoPerfil = leerImagen(body.fotoPerfil, "foto de perfil");
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
   }
@@ -491,6 +499,10 @@ async function handleCreateTarjeta(request, env) {
     ...campos,
     imagenFrente,
     imagenReverso,
+    fotoPerfil,
+    vistas: 0,
+    compartidos: 0,
+    descargas: 0,
     creadoEn: ahora,
     actualizadoEn: ahora
   };
@@ -536,6 +548,7 @@ async function handleUpdateTarjeta(request, env, id) {
     // Si no se manda una imagen nueva, se conserva la que ya estaba guardada.
     if (body.imagenFrente) cambios.imagenFrente = leerImagen(body.imagenFrente, "imagen del frente");
     if (body.imagenReverso) cambios.imagenReverso = leerImagen(body.imagenReverso, "imagen del reverso");
+    if (body.fotoPerfil) cambios.fotoPerfil = leerImagen(body.fotoPerfil, "foto de perfil");
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
   }
@@ -599,6 +612,105 @@ async function handleTarjetaPublica(env, id) {
   }
 }
 
+// --- Eventos (vistas / compartidos / descargas) y estadísticas ---
+// Endpoint público a propósito: lo llama la página pública /t cuando
+// alguien sin sesión abre el enlace de la tarjeta. Si quien la abre tiene
+// sesión activa, se guarda su identidad; si no, queda como anónimo.
+async function handleRegistrarEvento(request, env, id) {
+  const objectId = parseObjectId(id);
+  if (!objectId) return jsonResponse({ error: "ID inválido." }, 400);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
+  }
+
+  const tipo = texto(body.tipo).toLowerCase();
+  if (!TIPOS_EVENTO.includes(tipo)) {
+    return jsonResponse({ error: "Tipo de evento inválido." }, 400);
+  }
+
+  const sesion = await obtenerSesion(request, env);
+  let viewerNombre = null;
+  if (sesion) {
+    try {
+      const visor = await withUsuarios(env, (collection) => collection.findOne({ telefono: sesion.telefono }));
+      if (visor) viewerNombre = visor.nombre;
+    } catch {
+      // Si falla la consulta del visor, el evento se sigue registrando como anónimo.
+    }
+  }
+
+  const campoContador = { vista: "vistas", compartido: "compartidos", descarga: "descargas" }[tipo];
+
+  try {
+    await withTarjetas(env, (collection) =>
+      collection.updateOne({ _id: objectId }, { $inc: { [campoContador]: 1 } })
+    );
+    await withEventos(env, (collection) =>
+      collection.insertOne({
+        tarjetaId: objectId,
+        tipo,
+        fecha: new Date(),
+        viewerTelefono: sesion ? sesion.telefono : null,
+        viewerNombre
+      })
+    );
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    return jsonResponse({ error: "Error al registrar el evento.", message: error.message }, 500);
+  }
+}
+
+async function handleEstadisticasTarjeta(request, env, id) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const objectId = parseObjectId(id);
+  if (!objectId) return jsonResponse({ error: "ID inválido." }, 400);
+
+  try {
+    const tarjeta = await withTarjetas(env, (collection) => collection.findOne({ _id: objectId }));
+    if (!tarjeta) return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
+    if (tarjeta.propietarioTelefono !== sesion.telefono) {
+      return jsonResponse({ error: "No puedes ver las estadísticas de una tarjeta que no es tuya." }, 403);
+    }
+
+    const haceTreintaDias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const eventos = await withEventos(env, (collection) =>
+      collection.find({ tarjetaId: objectId, fecha: { $gte: haceTreintaDias } }).sort({ fecha: -1 }).toArray()
+    );
+
+    const porDia = {};
+    for (const ev of eventos) {
+      if (ev.tipo !== "vista") continue;
+      const clave = ev.fecha.toISOString().slice(0, 10);
+      porDia[clave] = (porDia[clave] || 0) + 1;
+    }
+    const serieVistas = Object.entries(porDia)
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([fecha, conteo]) => ({ fecha, conteo }));
+
+    const recientes = eventos.slice(0, 10).map((ev) => ({
+      tipo: ev.tipo,
+      fecha: ev.fecha,
+      viewerNombre: ev.viewerNombre
+    }));
+
+    return jsonResponse({
+      totalVistas: tarjeta.vistas || 0,
+      totalCompartidos: tarjeta.compartidos || 0,
+      totalDescargas: tarjeta.descargas || 0,
+      serieVistas,
+      recientes
+    });
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar las estadísticas.", message: error.message }, 500);
+  }
+}
+
 // --- OCR vía OpenAI (usa la API key guardada por el propio usuario) ---
 
 async function handleOcr(request, env) {
@@ -625,7 +737,7 @@ async function handleOcr(request, env) {
   }
 
   if (!usuario || !usuario.openaiApiKey) {
-    return jsonResponse({ error: "Configura tu API key de OpenAI en Configuración antes de usar el OCR." }, 400);
+    return jsonResponse({ error: "Configura tu API key de OpenAI en Perfil antes de usar el OCR." }, 400);
   }
 
   try {
@@ -855,10 +967,16 @@ export default {
     const matchTarjetaId = pathname.match(/^\/api\/tarjetas\/([^/]+)$/);
     if (matchTarjetaId && metodo === "PUT") return handleUpdateTarjeta(request, env, decodeURIComponent(matchTarjetaId[1]));
 
+    const matchEstadisticas = pathname.match(/^\/api\/tarjetas\/([^/]+)\/estadisticas$/);
+    if (matchEstadisticas && metodo === "GET") return handleEstadisticasTarjeta(request, env, decodeURIComponent(matchEstadisticas[1]));
+
     if (pathname === "/api/directorio" && metodo === "GET") return handleDirectorio(request, env);
 
     const matchTarjetaPublica = pathname.match(/^\/api\/tarjeta-publica\/([^/]+)$/);
     if (matchTarjetaPublica && metodo === "GET") return handleTarjetaPublica(env, decodeURIComponent(matchTarjetaPublica[1]));
+
+    const matchEvento = pathname.match(/^\/api\/eventos-tarjeta\/([^/]+)$/);
+    if (matchEvento && metodo === "POST") return handleRegistrarEvento(request, env, decodeURIComponent(matchEvento[1]));
 
     if (pathname === "/api/ocr" && metodo === "POST") return handleOcr(request, env);
 

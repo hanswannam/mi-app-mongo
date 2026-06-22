@@ -1,6 +1,7 @@
-const CACHE_NAME = "billetera-v1";
+const CACHE_NAME = "billetera-v2";
 const APP_SHELL = [
   "/",
+  "/app.js",
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
