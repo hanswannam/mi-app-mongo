@@ -100,9 +100,12 @@ function actualizarEstadoApiKey() {
 
 async function iniciar() {
   try {
-    const r = await fetch("/api/auth/yo");
+    const r = await fetchConLimite("/api/auth/yo", {}, 12000);
     if (r.ok) { usuarioActual = await r.json(); mostrarApp(); } else { mostrarAuth(); }
-  } catch { mostrarAuth(); }
+  } catch (error) {
+    console.error("iniciar:", error);
+    mostrarAuth();
+  }
 }
 
 // ---------- Auth ----------
@@ -184,7 +187,7 @@ document.getElementById("btn-escanear-cta").addEventListener("click", iniciarEsc
 // ---------- Categorías ----------
 async function cargarCategorias() {
   try {
-    const r = await fetch("/api/categorias");
+    const r = await fetchConLimite("/api/categorias");
     if (!r.ok) return;
     categorias = await r.json();
     const opciones = categorias.map((c) => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`).join("");
@@ -194,9 +197,25 @@ async function cargarCategorias() {
 }
 
 // ---------- Carga de contactos ----------
+// Si la conexión está muy lenta o se cae a mitad de la petición, un fetch()
+// normal puede quedar esperando indefinidamente sin avisar (se ve como que
+// la pantalla nunca termina de cargar). Con un límite de tiempo, en vez de
+// eso se muestra un mensaje claro para que el usuario sepa que es su señal,
+// no que la app esté rota.
+function fetchConLimite(url, opciones = {}, limiteMs = 15000) {
+  const controlador = new AbortController();
+  const aviso = setTimeout(() => controlador.abort(), limiteMs);
+  return fetch(url, { ...opciones, signal: controlador.signal }).finally(() => clearTimeout(aviso));
+}
+
+function mensajeDeError(error) {
+  if (error.name === "AbortError") return "Tu conexión está muy lenta o no responde. Verifica tu señal e intenta de nuevo.";
+  return error.message;
+}
+
 async function cargarContactos() {
   try {
-    const r = await fetch("/api/tarjetas", { cache: "no-store" });
+    const r = await fetchConLimite("/api/tarjetas", { cache: "no-store" });
     if (r.status === 401) { mostrarAuth(); return; }
     if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
     contactos = await r.json();
@@ -204,13 +223,13 @@ async function cargarContactos() {
     if (document.getElementById("screen-contactos").style.display !== "none") renderContactosLista();
   } catch (error) {
     console.error("cargarContactos:", error);
-    document.getElementById("lista-inicio").innerHTML = `<p class="placeholder-text">Error al cargar tus contactos: ${escapeHtml(error.message)}</p>`;
+    document.getElementById("lista-inicio").innerHTML = `<p class="placeholder-text">${escapeHtml(mensajeDeError(error))}</p>`;
   }
 }
 
 async function cargarDirectorio() {
   try {
-    const r = await fetch("/api/directorio", { cache: "no-store" });
+    const r = await fetchConLimite("/api/directorio", { cache: "no-store" });
     if (r.status === 401) { mostrarAuth(); return; }
     if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
     directorio = await r.json();
@@ -383,7 +402,7 @@ async function abrirDetalle(id, esDirectorio) {
   // tarjeta puntual.
   let c;
   try {
-    const r = await fetch(`/api/tarjetas/${id}`, { cache: "no-store" });
+    const r = await fetchConLimite(`/api/tarjetas/${id}`, { cache: "no-store" });
     if (!r.ok) throw new Error();
     c = await r.json();
   } catch {
@@ -753,7 +772,7 @@ async function renderMiTarjeta() {
   // La lista solo trae una miniatura; aquí se necesita la foto completa.
   let t = referencia;
   try {
-    const r = await fetch(`/api/tarjetas/${referencia._id}`, { cache: "no-store" });
+    const r = await fetchConLimite(`/api/tarjetas/${referencia._id}`, { cache: "no-store" });
     if (r.ok) t = await r.json();
   } catch {
     // Si falla, se usa la versión liviana de la lista (sin foto completa) para no dejar la pantalla en blanco.
@@ -822,7 +841,7 @@ async function cargarEstadisticas(id) {
   const cont = document.getElementById("estadisticas-contenido");
   cont.innerHTML = '<p class="placeholder-text">Cargando...</p>';
   try {
-    const r = await fetch(`/api/tarjetas/${id}/estadisticas`);
+    const r = await fetchConLimite(`/api/tarjetas/${id}/estadisticas`);
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "No se pudieron cargar las estadísticas.");
 
@@ -849,7 +868,7 @@ async function cargarEstadisticas(id) {
       <div class="card">${actividad}</div>
     `;
   } catch (error) {
-    cont.innerHTML = `<p class="placeholder-text">${escapeHtml(error.message)}</p>`;
+    cont.innerHTML = `<p class="placeholder-text">${escapeHtml(mensajeDeError(error))}</p>`;
   }
 }
 
