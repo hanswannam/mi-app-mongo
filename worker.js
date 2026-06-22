@@ -1,10 +1,27 @@
 import { MongoClient } from "mongodb";
 
+const MAX_IMAGEN_BASE64 = 2_000_000; // ~1.5 MB de imagen real, ya comprimida en el navegador
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json" }
   });
+}
+
+function texto(valor) {
+  return (valor || "").trim();
+}
+
+function leerImagen(valor, nombreCampo) {
+  if (!valor) return "";
+  if (typeof valor !== "string" || !valor.startsWith("data:image/")) {
+    throw new Error(`El campo '${nombreCampo}' debe ser una imagen válida.`);
+  }
+  if (valor.length > MAX_IMAGEN_BASE64) {
+    throw new Error(`La imagen de '${nombreCampo}' es demasiado grande. Usa una más liviana.`);
+  }
+  return valor;
 }
 
 // Se conecta y se cierra dentro de cada request: mantener un MongoClient
@@ -45,19 +62,35 @@ async function handleCreateTarjeta(request, env) {
     return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
   }
 
-  const nombre = (body.nombre || "").trim();
+  const nombre = texto(body.nombre);
   if (!nombre) {
     return jsonResponse({ error: "El campo 'nombre' es obligatorio." }, 400);
   }
 
+  let imagenFrente;
+  let imagenReverso;
+  try {
+    imagenFrente = leerImagen(body.imagenFrente, "imagen del frente");
+    imagenReverso = leerImagen(body.imagenReverso, "imagen del reverso");
+  } catch (error) {
+    return jsonResponse({ error: error.message }, 400);
+  }
+
   const tarjeta = {
     nombre,
-    empresa: (body.empresa || "").trim(),
-    cargo: (body.cargo || "").trim(),
-    telefono: (body.telefono || "").trim(),
-    email: (body.email || "").trim(),
-    sitioWeb: (body.sitioWeb || "").trim(),
-    notas: (body.notas || "").trim(),
+    empresa: texto(body.empresa),
+    cargo: texto(body.cargo),
+    telefono: texto(body.telefono),
+    email: texto(body.email),
+    sitioWeb: texto(body.sitioWeb),
+    notas: texto(body.notas),
+    facebook: texto(body.facebook),
+    instagram: texto(body.instagram),
+    linkedin: texto(body.linkedin),
+    tiktok: texto(body.tiktok),
+    twitter: texto(body.twitter),
+    imagenFrente,
+    imagenReverso,
     creadoEn: new Date()
   };
 
