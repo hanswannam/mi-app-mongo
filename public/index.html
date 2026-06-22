@@ -163,6 +163,11 @@
             background-color: #eef2ff;
         }
 
+        .btn-sm {
+            padding: 8px 14px;
+            font-size: 13px;
+        }
+
         .list-header {
             display: flex;
             justify-content: space-between;
@@ -281,14 +286,125 @@
             font-style: italic;
             margin: 12px 0;
         }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border);
+            background-color: var(--bg);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .top-bar-acciones {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .estado-api-key {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="vista-cargando">
+        <p class="placeholder-text">Cargando...</p>
+    </div>
+
+    <div class="container" id="vista-auth" style="display: none;">
         <div class="panel">
             <h1>Billetera Virtual</h1>
-            <p class="subtitle">Guarda y consulta tus tarjetas de presentación.</p>
+            <p class="subtitle">Inicia sesión o crea una cuenta para guardar tus tarjetas de presentación.</p>
 
+            <div class="tabs">
+                <button type="button" class="tab-btn active" data-tab="login">Iniciar sesión</button>
+                <button type="button" class="tab-btn" data-tab="registro">Crear cuenta</button>
+            </div>
+
+            <div id="auth-message"></div>
+
+            <form id="form-login">
+                <div class="field" style="margin-bottom: 14px;">
+                    <label for="login-telefono">Teléfono</label>
+                    <input id="login-telefono" name="telefono" type="tel" required>
+                </div>
+                <div class="field" style="margin-bottom: 14px;">
+                    <label for="login-dpi">DPI (contraseña)</label>
+                    <input id="login-dpi" name="dpi" type="password" required>
+                </div>
+                <button type="submit" class="btn">Entrar</button>
+            </form>
+
+            <form id="form-registro" style="display: none;">
+                <div class="field" style="margin-bottom: 14px;">
+                    <label for="registro-nombre">Nombre completo</label>
+                    <input id="registro-nombre" name="nombre" type="text" required>
+                </div>
+                <div class="field" style="margin-bottom: 14px;">
+                    <label for="registro-telefono">Teléfono</label>
+                    <input id="registro-telefono" name="telefono" type="tel" required>
+                </div>
+                <div class="field" style="margin-bottom: 14px;">
+                    <label for="registro-dpi">DPI (será tu contraseña)</label>
+                    <input id="registro-dpi" name="dpi" type="password" required>
+                </div>
+                <button type="submit" class="btn">Crear cuenta</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container" id="vista-app" style="display: none;">
+        <div class="panel">
+            <div class="top-bar">
+                <div>
+                    <strong id="saludo-usuario"></strong>
+                    <div class="estado-api-key" id="estado-api-key"></div>
+                </div>
+                <div class="top-bar-acciones">
+                    <a id="link-admin" class="btn btn-secondary btn-sm" href="/admin.html" style="display: none;">Panel Admin</a>
+                    <button id="btn-config" type="button" class="btn btn-secondary btn-sm">Configuración</button>
+                    <button id="btn-logout" type="button" class="btn btn-secondary btn-sm">Cerrar sesión</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-config" style="display: none;">
+            <h2>Configuración</h2>
+            <p class="subtitle">Tu API key de OpenAI se usa para extraer automáticamente los datos desde la foto de la tarjeta (OCR). Se guarda asociada únicamente a tu cuenta.</p>
+            <div class="field" style="margin-bottom: 12px;">
+                <label for="input-openai-key">API key de OpenAI</label>
+                <input id="input-openai-key" type="password" placeholder="sk-...">
+            </div>
+            <button id="btn-guardar-key" type="button" class="btn btn-sm">Guardar API key</button>
+        </div>
+
+        <div class="panel">
             <h2>Agregar tarjeta</h2>
             <div id="form-message"></div>
             <form id="form-tarjeta">
@@ -328,6 +444,7 @@
                     <div class="field">
                         <label for="imagenFrente">Frente</label>
                         <input id="imagenFrente" name="imagenFrente" type="file" accept="image/*">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-ocr" style="margin-top: 4px;">🔍 Escanear con OCR</button>
                     </div>
                     <div class="field">
                         <label for="imagenReverso">Reverso (si la tarjeta tiene dos lados)</label>
@@ -380,6 +497,7 @@
         let tarjetas = [];
         let imagenFrenteBase64 = "";
         let imagenReversoBase64 = "";
+        let usuarioActual = null;
 
         const REDES = [
             { campo: "facebook", etiqueta: "Facebook", icono: "📘", base: "https://facebook.com/" },
@@ -394,6 +512,131 @@
                 "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
             }[c]));
         }
+
+        // --- Vistas (cargando / login-registro / app) ---
+
+        function mostrarAuth() {
+            document.getElementById("vista-cargando").style.display = "none";
+            document.getElementById("vista-auth").style.display = "block";
+            document.getElementById("vista-app").style.display = "none";
+        }
+
+        function actualizarEstadoApiKey() {
+            document.getElementById("estado-api-key").textContent = usuarioActual.tieneApiKey
+                ? "✅ API key de OpenAI configurada"
+                : "⚠️ No has configurado tu API key de OpenAI (necesaria para el OCR)";
+        }
+
+        function mostrarApp() {
+            document.getElementById("vista-cargando").style.display = "none";
+            document.getElementById("vista-auth").style.display = "none";
+            document.getElementById("vista-app").style.display = "block";
+            document.getElementById("saludo-usuario").textContent = `Hola, ${usuarioActual.nombre}`;
+            actualizarEstadoApiKey();
+            document.getElementById("link-admin").style.display = usuarioActual.rol === "admin" ? "inline-flex" : "none";
+            cargarTarjetas();
+        }
+
+        async function iniciar() {
+            try {
+                const r = await fetch("/api/auth/yo");
+                if (r.ok) {
+                    usuarioActual = await r.json();
+                    mostrarApp();
+                } else {
+                    mostrarAuth();
+                }
+            } catch {
+                mostrarAuth();
+            }
+        }
+
+        // --- Tabs login / registro ---
+
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+                btn.classList.add("active");
+                document.getElementById("form-login").style.display = btn.dataset.tab === "login" ? "block" : "none";
+                document.getElementById("form-registro").style.display = btn.dataset.tab === "registro" ? "block" : "none";
+                document.getElementById("auth-message").innerHTML = "";
+            });
+        });
+
+        document.getElementById("form-login").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const msg = document.getElementById("auth-message");
+            msg.innerHTML = "";
+            try {
+                const r = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ telefono: form.telefono.value, dpi: form.dpi.value })
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || "No se pudo iniciar sesión.");
+                usuarioActual = data;
+                mostrarApp();
+            } catch (error) {
+                msg.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+            }
+        });
+
+        document.getElementById("form-registro").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const msg = document.getElementById("auth-message");
+            msg.innerHTML = "";
+            try {
+                const r = await fetch("/api/auth/registro", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nombre: form.nombre.value, telefono: form.telefono.value, dpi: form.dpi.value })
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || "No se pudo crear la cuenta.");
+                usuarioActual = data;
+                mostrarApp();
+            } catch (error) {
+                msg.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+            }
+        });
+
+        document.getElementById("btn-logout").addEventListener("click", async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            usuarioActual = null;
+            tarjetas = [];
+            mostrarAuth();
+        });
+
+        // --- Configuración (API key de OpenAI) ---
+
+        document.getElementById("btn-config").addEventListener("click", () => {
+            const panel = document.getElementById("panel-config");
+            panel.style.display = panel.style.display === "none" ? "block" : "none";
+        });
+
+        document.getElementById("btn-guardar-key").addEventListener("click", async () => {
+            const input = document.getElementById("input-openai-key");
+            try {
+                const r = await fetch("/api/usuario/openai-key", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ openaiApiKey: input.value })
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || "No se pudo guardar la API key.");
+                usuarioActual.tieneApiKey = data.tieneApiKey;
+                actualizarEstadoApiKey();
+                input.value = "";
+                alert("API key guardada.");
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        // --- Fotos de la tarjeta ---
 
         function comprimirImagen(file, maxAncho = 1200, calidad = 0.75) {
             return new Promise((resolve, reject) => {
@@ -446,6 +689,49 @@
             }
             actualizarPreviews();
         });
+
+        // --- OCR ---
+
+        document.getElementById("btn-ocr").addEventListener("click", async () => {
+            const messageBox = document.getElementById("form-message");
+            messageBox.innerHTML = "";
+
+            if (!imagenFrenteBase64) {
+                messageBox.innerHTML = '<p class="form-message error">Primero selecciona la foto del frente de la tarjeta.</p>';
+                return;
+            }
+
+            const btn = document.getElementById("btn-ocr");
+            btn.disabled = true;
+            btn.textContent = "Escaneando...";
+
+            try {
+                const r = await fetch("/api/ocr", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ imagen: imagenFrenteBase64 })
+                });
+                const datos = await r.json();
+                if (!r.ok) throw new Error(datos.error || "No se pudo escanear la imagen.");
+
+                const form = document.getElementById("form-tarjeta");
+                if (datos.nombre) form.nombre.value = datos.nombre;
+                if (datos.empresa) form.empresa.value = datos.empresa;
+                if (datos.cargo) form.cargo.value = datos.cargo;
+                if (datos.telefono) form.telefono.value = datos.telefono;
+                if (datos.email) form.email.value = datos.email;
+                if (datos.sitioWeb) form.sitioWeb.value = datos.sitioWeb;
+
+                messageBox.innerHTML = '<p class="form-message success">Datos extraídos con OCR. Revísalos antes de guardar.</p>';
+            } catch (error) {
+                messageBox.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "🔍 Escanear con OCR";
+            }
+        });
+
+        // --- Tarjetas ---
 
         function whatsappUrl(telefono) {
             const digitos = (telefono || "").replace(/\D/g, "");
@@ -513,6 +799,7 @@
             container.innerHTML = '<p class="placeholder-text">Cargando tarjetas...</p>';
             try {
                 const response = await fetch("/api/tarjetas");
+                if (response.status === 401) { mostrarAuth(); return; }
                 if (!response.ok) {
                     throw new Error(`Error en el servidor: ${response.status} ${response.statusText}`);
                 }
@@ -559,6 +846,9 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(datos)
                 });
+
+                if (response.status === 401) { mostrarAuth(); return; }
+
                 const resultado = await response.json();
 
                 if (!response.ok) {
@@ -579,7 +869,7 @@
             }
         });
 
-        cargarTarjetas();
+        iniciar();
 
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

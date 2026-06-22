@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billetera Virtual - Panel Admin</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f9fafb;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #4b5563;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-top: 0;
+        }
+
+        a.volver {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 16px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .placeholder-text {
+            color: #9ca3af;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <p><a class="volver" href="/">← Volver a la app</a></p>
+        <div class="panel">
+            <h1>Panel de administrador</h1>
+            <p class="placeholder-text" style="margin-top: 0;">Usuarios registrados en Billetera Virtual.</p>
+            <div id="contenido"><p class="placeholder-text">Cargando...</p></div>
+        </div>
+    </div>
+
+    <script>
+        function escapeHtml(value) {
+            return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+            }[c]));
+        }
+
+        function renderTabla(usuarios) {
+            const contenido = document.getElementById("contenido");
+
+            if (usuarios.length === 0) {
+                contenido.innerHTML = '<p class="placeholder-text">No hay usuarios registrados.</p>';
+                return;
+            }
+
+            contenido.innerHTML = `
+                <table>
+                    <thead>
+                        <tr><th>Teléfono</th><th>Nombre</th><th>Rol</th><th>Registrado</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        ${usuarios.map((u) => `
+                            <tr>
+                                <td>${escapeHtml(u.telefono)}</td>
+                                <td>${escapeHtml(u.nombre)}</td>
+                                <td>${escapeHtml(u.rol)}</td>
+                                <td>${new Date(u.creadoEn).toLocaleDateString("es-GT")}</td>
+                                <td>
+                                    <button class="btn" data-telefono="${escapeHtml(u.telefono)}" data-rol="${escapeHtml(u.rol)}">
+                                        ${u.rol === "admin" ? "Quitar admin" : "Hacer admin"}
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `;
+
+            contenido.querySelectorAll("button[data-telefono]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    const telefono = btn.dataset.telefono;
+                    const nuevoRol = btn.dataset.rol === "admin" ? "usuario" : "admin";
+                    btn.disabled = true;
+                    try {
+                        const r = await fetch(`/api/admin/usuarios/${encodeURIComponent(telefono)}/rol`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ rol: nuevoRol })
+                        });
+                        const data = await r.json();
+                        if (!r.ok) throw new Error(data.error || "No se pudo actualizar el rol.");
+                        await cargar();
+                    } catch (error) {
+                        alert(error.message);
+                        btn.disabled = false;
+                    }
+                });
+            });
+        }
+
+        async function cargar() {
+            const contenido = document.getElementById("contenido");
+            try {
+                const r = await fetch("/api/admin/usuarios");
+                if (r.status === 401) {
+                    contenido.innerHTML = '<p class="placeholder-text">Debes iniciar sesión. <a href="/">Ir al login</a></p>';
+                    return;
+                }
+                if (r.status === 403) {
+                    contenido.innerHTML = '<p class="placeholder-text">No tienes permisos de administrador.</p>';
+                    return;
+                }
+                if (!r.ok) throw new Error(`Error ${r.status}`);
+                renderTabla(await r.json());
+            } catch (error) {
+                contenido.innerHTML = `<p class="placeholder-text">Error al cargar usuarios: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        cargar();
+    </script>
+</body>
+</html>
