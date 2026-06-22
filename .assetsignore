@@ -1,0 +1,14 @@
+node_modules
+.git
+.git_disabled
+.wrangler
+.env
+.dev.vars
+*.log
+package.json
+package-lock.json
+wrangler.jsonc
+worker.js
+.assetsignore
+.gitignore
+.env.example

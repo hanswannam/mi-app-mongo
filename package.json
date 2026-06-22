@@ -3,10 +3,19 @@
   "version": "1.0.0",
   "description": "Aplicación web completa billetera",
   "main": "index.html",
+  "type": "module",
   "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "mongodb": "^6.9.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
 }
