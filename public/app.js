@@ -1,3 +1,20 @@
+// Captura de errores visible en pantalla (temporal, para diagnosticar sin
+// necesitar conectar el teléfono a una computadora). Si algo falla antes de
+// que la app termine de cargar, se muestra el error aquí mismo en vez de
+// quedar la pantalla pegada en "Cargando...".
+function mostrarErrorVisible(origen, detalle) {
+  const caja = document.createElement("div");
+  caja.style.cssText = "position:fixed; bottom:0; left:0; right:0; max-height:40vh; overflow:auto; background:#1a0a0a; color:#ffb4b4; font-size:11px; font-family:monospace; padding:10px; z-index:99999; white-space:pre-wrap; border-top:3px solid #ff4444;";
+  caja.textContent = `[${origen}] ${detalle}`;
+  document.body.appendChild(caja);
+}
+window.addEventListener("error", (e) => {
+  mostrarErrorVisible("error", `${e.message} — ${e.filename}:${e.lineno}:${e.colno}`);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  mostrarErrorVisible("promesa", String(e.reason && e.reason.stack ? e.reason.stack : e.reason));
+});
+
 let usuarioActual = null;
 let contactos = [];
 let directorio = [];
