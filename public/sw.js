@@ -1,4 +1,4 @@
-const CACHE_NAME = "billetera-v3";
+const CACHE_NAME = "billetera-v4";
 const APP_SHELL = [
   "/manifest.json",
   "/icons/icon-192.png",
@@ -10,7 +10,7 @@ const APP_SHELL = [
 // deben ir primero a la red: servirlas desde caché puede mezclar una versión
 // vieja de index.html con una nueva de app.js (o viceversa) y romper la app
 // de forma silenciosa entre una sesión y otra.
-const RUTAS_DINAMICAS = ["/", "/app.js", "/admin", "/t"];
+const RUTAS_DINAMICAS = ["/", "/app.js", "/admin", "/t", "/activar"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

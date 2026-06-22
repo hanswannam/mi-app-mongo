@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activa tu cuenta - Billetera Virtual</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #F8FAFC; --surface: #FFFFFF; --text: #111827; --text-muted: #6B7280;
+            --border: #E5E7EB; --primary: #FF6B00; --secondary: #1F2937;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: var(--bg); color: var(--text); margin: 0; min-height: 100dvh;
+            display: flex; align-items: center; justify-content: center; padding: 24px;
+        }
+        .card {
+            width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 22px; padding: 28px; box-shadow: 0 8px 24px rgba(16,24,40,.1);
+        }
+        h1 { font-size: 22px; font-weight: 800; letter-spacing: -.01em; margin: 0 0 4px; }
+        .meta { font-size: 14px; color: var(--text-muted); margin-bottom: 22px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+        input {
+            width: 100%; font-family: inherit; font-size: 16px; padding: 11px 13px;
+            border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text);
+        }
+        .btn {
+            width: 100%; margin-top: 20px; background: var(--primary); color: #fff; border: none;
+            font-family: inherit; font-size: 15px; font-weight: 700; padding: 13px; border-radius: 12px; cursor: pointer;
+        }
+        .btn:disabled { opacity: .6; cursor: not-allowed; }
+        .message { font-size: 13px; border-radius: 10px; padding: 10px 12px; margin-top: 14px; }
+        .message.error { background: #FEF2F2; color: #B91C1C; }
+        .message.success { background: #ECFDF5; color: #047857; }
+        .placeholder-text { color: var(--text-muted); text-align: center; }
+        a.volver-app { display: inline-block; margin-top: 16px; font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card" id="contenido"><p class="placeholder-text">Cargando invitación...</p></div>
+
+    <script>
+        function escapeHtml(value) {
+            return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        }
+
+        const token = new URLSearchParams(location.search).get("token");
+        const contenedor = document.getElementById("contenido");
+
+        function renderFormulario(invitacion) {
+            contenedor.innerHTML = `
+                <h1>¡Hola, ${escapeHtml(invitacion.nombreContacto || "")}!</h1>
+                <p class="meta">Hemos digitalizado tu tarjeta de presentación. Crea tu cuenta para administrarla y mantenerla actualizada.</p>
+                <form id="form-activar">
+                    <label for="nombre">Nombre completo</label>
+                    <input type="text" id="nombre" value="${escapeHtml(invitacion.nombreContacto || "")}" required>
+                    <label for="telefono">Teléfono (será tu usuario)</label>
+                    <input type="tel" id="telefono" value="${escapeHtml(invitacion.telefonoContacto || "")}" required>
+                    <label for="dpi">Crea tu contraseña (DPI)</label>
+                    <input type="password" id="dpi" placeholder="Tu número de DPI" required>
+                    <label for="dpiConfirmar">Confirma tu DPI</label>
+                    <input type="password" id="dpiConfirmar" placeholder="Repite tu DPI" required>
+                    <button type="submit" class="btn" id="btn-activar">Activar mi cuenta</button>
+                    <div id="form-mensaje"></div>
+                </form>
+            `;
+            document.getElementById("form-activar").addEventListener("submit", activar);
+        }
+
+        async function activar(e) {
+            e.preventDefault();
+            const btn = document.getElementById("btn-activar");
+            const msg = document.getElementById("form-mensaje");
+            const dpi = document.getElementById("dpi").value.trim();
+            const dpiConfirmar = document.getElementById("dpiConfirmar").value.trim();
+            if (dpi !== dpiConfirmar) {
+                msg.innerHTML = '<p class="message error">El DPI no coincide en ambos campos.</p>';
+                return;
+            }
+            btn.disabled = true; btn.textContent = "Activando...";
+            try {
+                const r = await fetch(`/api/invitaciones/${encodeURIComponent(token)}/activar`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        nombre: document.getElementById("nombre").value,
+                        telefono: document.getElementById("telefono").value,
+                        dpi
+                    })
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || `Error ${r.status}`);
+                contenedor.innerHTML = `
+                    <h1>¡Listo, ${escapeHtml(data.nombre || "")}!</h1>
+                    <p class="message success">Tu cuenta fue activada y tu tarjeta ya está lista para editar.</p>
+                    <a class="volver-app" href="/">Ir a mi billetera →</a>
+                `;
+            } catch (error) {
+                msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
+                btn.disabled = false; btn.textContent = "Activar mi cuenta";
+            }
+        }
+
+        async function cargar() {
+            if (!token) { contenedor.innerHTML = '<p class="placeholder-text">Falta el token de invitación.</p>'; return; }
+            try {
+                const r = await fetch(`/api/invitaciones/${encodeURIComponent(token)}`);
+                const data = await r.json();
+                if (!r.ok) { contenedor.innerHTML = `<p class="placeholder-text">${escapeHtml(data.error || "Esta invitación no es válida.")}</p>`; return; }
+                renderFormulario(data);
+            } catch (error) {
+                contenedor.innerHTML = `<p class="placeholder-text">Error al cargar la invitación: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        cargar();
+    </script>
+</body>
+</html>

@@ -467,8 +467,32 @@ async function abrirDetalle(id, esDirectorio) {
   btnFav.style.display = esDirectorio ? "none" : "inline-flex";
   document.getElementById("btn-editar-detalle").style.display = esDirectorio ? "none" : "block";
 
+  const btnInvitar = document.getElementById("btn-invitar-detalle");
+  btnInvitar.style.display = (!esDirectorio && !c.esMiTarjeta && c.telefono) ? "block" : "none";
+  btnInvitar.disabled = false;
+  btnInvitar.textContent = "📲 Invitar a la plataforma";
+
   mostrarPantalla("detalle");
 }
+
+document.getElementById("btn-invitar-detalle").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-invitar-detalle");
+  if (!detalleActualId) return;
+  btn.disabled = true; btn.textContent = "Generando enlace...";
+  try {
+    const r = await fetchConLimite(`/api/tarjetas/${detalleActualId}/invitar`, { method: "POST" });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "No se pudo generar la invitación.");
+    const mensaje = `Hola ${data.nombreContacto || ""}. Hemos digitalizado tu tarjeta de presentación. Ahora puedes administrar y actualizar tu información directamente. Activa tu cuenta aquí: ${data.link}`;
+    const wa = whatsappUrl(data.telefonoContacto, mensaje);
+    if (wa) window.open(wa, "_blank");
+    else { await navigator.clipboard?.writeText(data.link); alert("Enlace de invitación copiado: " + data.link); }
+  } catch (error) {
+    alert(mensajeDeError(error));
+  } finally {
+    btn.disabled = false; btn.textContent = "📲 Invitar a la plataforma";
+  }
+});
 
 document.getElementById("detalle-flip-inner").addEventListener("click", () => {
   detalleFlipped = !detalleFlipped;
