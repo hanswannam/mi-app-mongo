@@ -108,10 +108,31 @@ function cookieSesion(token) {
 
 const COOKIE_LOGOUT = "sesion=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
 
+// Cloudflare tiene dos formas de inyectar secrets: como variable de entorno
+// plana (env.X es un string) o como binding de "Secrets Store" (env.X es un
+// objeto con .get() async). Soportamos ambas para no depender de cuál esté
+// disponible en el dashboard.
+async function leerSecretoBinding(binding) {
+  if (!binding) return null;
+  if (typeof binding === "string") return binding;
+  if (typeof binding.get === "function") return await binding.get();
+  return null;
+}
+
+async function obtenerConfig(env) {
+  const [mongoUri, mongoDatabase, sessionSecret] = await Promise.all([
+    leerSecretoBinding(env.MONGO_URI),
+    leerSecretoBinding(env.MONGO_DATABASE),
+    leerSecretoBinding(env.SESSION_SECRET)
+  ]);
+  return { mongoUri, mongoDatabase, sessionSecret };
+}
+
 async function obtenerSesion(request, env) {
-  if (!env.SESSION_SECRET) return null;
+  const { sessionSecret } = await obtenerConfig(env);
+  if (!sessionSecret) return null;
   const token = leerCookie(request, "sesion");
-  return verificarSesion(token, env.SESSION_SECRET);
+  return verificarSesion(token, sessionSecret);
 }
 
 // --- Mongo ---
@@ -120,14 +141,15 @@ async function obtenerSesion(request, env) {
 // huérfanos cuando termina la request, y el runtime de Workers cancela la
 // siguiente request al detectarlos como "código que nunca responde".
 async function withCollection(env, nombreColeccion, fn) {
-  if (!env.MONGO_URI || !env.MONGO_DATABASE) {
+  const { mongoUri, mongoDatabase } = await obtenerConfig(env);
+  if (!mongoUri || !mongoDatabase) {
     throw new Error("Faltan variables de entorno MONGO_URI o MONGO_DATABASE.");
   }
 
-  const client = new MongoClient(env.MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+  const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 10000 });
   try {
     await client.connect();
-    const collection = client.db(env.MONGO_DATABASE).collection(nombreColeccion);
+    const collection = client.db(mongoDatabase).collection(nombreColeccion);
     return await fn(collection);
   } finally {
     await client.close();
@@ -140,7 +162,8 @@ const withTarjetas = (env, fn) => withCollection(env, "tarjetas", fn);
 // --- Autenticación ---
 
 async function handleRegistro(request, env) {
-  if (!env.SESSION_SECRET) {
+  const { sessionSecret } = await obtenerConfig(env);
+  if (!sessionSecret) {
     return jsonResponse({ error: "Falta configurar SESSION_SECRET en el servidor." }, 500);
   }
 
@@ -178,7 +201,7 @@ async function handleRegistro(request, env) {
       });
     });
 
-    const token = await firmarSesion({ telefono, rol: "usuario", exp: Date.now() + SESION_DURACION_MS }, env.SESSION_SECRET);
+    const token = await firmarSesion({ telefono, rol: "usuario", exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
     return jsonResponse(
       { telefono, nombre, rol: "usuario", tieneApiKey: false },
       201,
@@ -190,7 +213,8 @@ async function handleRegistro(request, env) {
 }
 
 async function handleLogin(request, env) {
-  if (!env.SESSION_SECRET) {
+  const { sessionSecret } = await obtenerConfig(env);
+  if (!sessionSecret) {
     return jsonResponse({ error: "Falta configurar SESSION_SECRET en el servidor." }, 500);
   }
 
@@ -218,7 +242,7 @@ async function handleLogin(request, env) {
       return jsonResponse({ error: "Usuario o contraseña incorrectos." }, 401);
     }
 
-    const token = await firmarSesion({ telefono, rol: usuario.rol, exp: Date.now() + SESION_DURACION_MS }, env.SESSION_SECRET);
+    const token = await firmarSesion({ telefono, rol: usuario.rol, exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
     return jsonResponse(
       { telefono, nombre: usuario.nombre, rol: usuario.rol, tieneApiKey: Boolean(usuario.openaiApiKey) },
       200,
