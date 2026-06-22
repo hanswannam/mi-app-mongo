@@ -78,19 +78,26 @@ function mostrarApp() {
   document.getElementById("cuenta-nombre").value = usuarioActual.nombre;
   document.getElementById("cuenta-telefono").value = usuarioActual.telefono;
   document.getElementById("perfil-admin-link").style.display = usuarioActual.rol === "admin" ? "block" : "none";
-  actualizarAvatarPerfil();
-  actualizarEstadoApiKey();
+  // Un error en cualquiera de estos dos (detalles del perfil) no debe poder
+  // tumbar la carga de las tarjetas que viene justo después — eso fue
+  // exactamente lo que pasaba antes: un error silencioso aquí dejaba la
+  // pantalla pegada en "Cargando..." para siempre, sin aviso.
+  try { actualizarAvatarPerfil(); } catch (error) { console.error("actualizarAvatarPerfil:", error); }
+  try { actualizarEstadoApiKey(); } catch (error) { console.error("actualizarEstadoApiKey:", error); }
   cargarCategorias();
   cargarContactos();
   mostrarPantalla("inicio");
 }
 
 function actualizarAvatarPerfil() {
+  // El input de archivo vive aparte en el HTML (no como hijo de este div):
+  // si se metiera aquí, el innerHTML de abajo lo destruiría en cada llamada
+  // y la siguiente vez ya no existiría — eso causaba un error que detenía
+  // por completo la carga de la app (incluyendo las tarjetas) en cada visita.
   const el = document.getElementById("perfil-avatar");
   el.innerHTML = usuarioActual.fotoPerfil
     ? `<img src="${usuarioActual.fotoPerfil}" alt="">`
     : iniciales(usuarioActual.nombre);
-  el.appendChild(document.getElementById("input-foto-perfil"));
 }
 
 function actualizarEstadoApiKey() {
