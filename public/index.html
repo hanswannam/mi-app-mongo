@@ -6,7 +6,7 @@
     <title>Billetera Virtual - Tarjetas de Presentación</title>
 
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#09090b">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,120 +14,113 @@
     <meta name="apple-mobile-web-app-title" content="Billetera">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --bg: #f9fafb;
-            --card-bg: #ffffff;
-            --text-main: #111827;
-            --text-muted: #4b5563;
-            --border: #e5e7eb;
-            --error: #b91c1c;
-            --error-bg: #fef2f2;
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --text: #18181b;
+            --text-muted: #71717a;
+            --text-faint: #a1a1aa;
+            --border: #e4e4e7;
+            --border-strong: #18181b;
+            --accent: #34d399;
+            --accent-hover: #10b981;
+            --accent-ink: #09090b;
+            --danger: #e11d48;
+            --danger-bg: #fff1f2;
+            --success: #059669;
+            --success-bg: #ecfdf5;
         }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            margin: 0;
-            padding: 40px 20px;
+        * {
             box-sizing: border-box;
         }
 
-        .container {
-            max-width: 720px;
-            width: 100%;
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            min-height: 100dvh;
+            will-change: transform;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .shell {
+            max-width: 1080px;
             margin: 0 auto;
+            padding: 0 24px 80px;
         }
 
-        #vista-auth {
-            max-width: 1040px;
+        .shell-narrow {
+            max-width: 640px;
         }
 
-        .panel {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            margin-bottom: 24px;
-        }
-
-        h1 {
-            font-size: 24px;
+        h1, h2, h3 {
+            margin: 0;
             font-weight: 700;
-            margin-top: 0;
-            margin-bottom: 4px;
-            color: var(--text-main);
-        }
-
-        p.subtitle {
-            color: var(--text-muted);
-            font-size: 14px;
-            margin-top: 0;
-            margin-bottom: 24px;
+            letter-spacing: -0.01em;
         }
 
         h2 {
-            font-size: 16px;
-            font-weight: 700;
-            margin-top: 0;
-            margin-bottom: 16px;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            font-weight: 600;
         }
 
-        h3 {
-            font-size: 13px;
-            font-weight: 700;
+        p {
+            margin: 0;
+        }
+
+        label {
+            font-size: 12px;
+            font-weight: 600;
             color: var(--text-muted);
-            margin: 20px 0 10px;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-bottom: 16px;
         }
 
         .field {
             display: flex;
             flex-direction: column;
             gap: 6px;
+            margin-bottom: 16px;
         }
 
         .field.full {
             grid-column: 1 / -1;
         }
 
-        label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-muted);
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 20px;
         }
 
-        input, textarea {
+        input, textarea, select {
             font-family: inherit;
             font-size: 14px;
-            padding: 10px 12px;
+            padding: 11px 14px;
             border: 1px solid var(--border);
-            border-radius: 8px;
-            background-color: var(--bg);
-            color: var(--text-main);
-            box-sizing: border-box;
+            border-radius: 6px;
+            background-color: var(--surface);
+            color: var(--text);
         }
 
         input[type="file"] {
             padding: 8px;
+            font-size: 13px;
         }
 
-        input:focus, textarea:focus {
+        input:focus, textarea:focus, select:focus {
             outline: none;
-            border-color: var(--primary);
+            border-color: var(--text);
         }
 
         textarea {
@@ -136,43 +129,438 @@
         }
 
         .btn {
-            background-color: var(--primary);
-            color: white;
+            background-color: var(--accent);
+            color: var(--accent-ink);
             border: none;
-            padding: 12px 24px;
-            font-size: 15px;
+            padding: 12px 22px;
+            font-size: 14px;
             font-weight: 600;
-            border-radius: 8px;
+            font-family: inherit;
+            border-radius: 6px;
             cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
+            transition: background-color 0.15s ease, transform 0.1s ease;
         }
 
         .btn:hover {
-            background-color: var(--primary-hover);
+            background-color: var(--accent-hover);
         }
 
         .btn:active {
-            transform: scale(0.98);
+            transform: scale(0.97);
         }
 
         .btn:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
-        .btn-secondary {
+        .btn-outline {
             background-color: transparent;
-            color: var(--primary);
-            border: 1px solid var(--primary);
+            color: var(--text);
+            border: 1px solid var(--border-strong);
         }
 
-        .btn-secondary:hover {
-            background-color: #eef2ff;
+        .btn-outline:hover {
+            background-color: var(--text);
+            color: var(--surface);
+        }
+
+        .btn-ghost {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 8px 4px;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .btn-ghost:hover {
+            color: var(--text);
+            background: none;
         }
 
         .btn-sm {
             padding: 8px 14px;
             font-size: 13px;
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .message {
+            font-size: 13px;
+            margin-bottom: 16px;
+            padding: 11px 14px;
+            border-radius: 6px;
+            border-left: 3px solid transparent;
+        }
+
+        .message.error {
+            color: var(--danger);
+            background-color: var(--danger-bg);
+            border-color: var(--danger);
+        }
+
+        .message.success {
+            color: var(--success);
+            background-color: var(--success-bg);
+            border-color: var(--success);
+        }
+
+        .placeholder-text {
+            color: var(--text-faint);
+            font-style: italic;
+            margin: 16px 0;
+        }
+
+        /* --- Landing (vista-auth) --- */
+
+        #vista-auth {
+            padding-top: 56px;
+        }
+
+        .topmark {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 64px;
+        }
+
+        .topmark img {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+        }
+
+        .topmark span {
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+        }
+
+        .landing-grid {
+            display: grid;
+            grid-template-columns: 7fr 5fr;
+            gap: 56px;
+            align-items: start;
+        }
+
+        .hero-eyebrow {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            color: var(--text-muted);
+            margin-bottom: 28px;
+        }
+
+        .hero-eyebrow .dash {
+            width: 26px;
+            height: 1px;
+            background: var(--accent-hover);
+        }
+
+        .hero-title {
+            font-size: clamp(2.4rem, 5vw, 3.6rem);
+            line-height: 1.08;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0 0 24px;
+            color: var(--text);
+        }
+
+        .hero-title .accent {
+            color: var(--accent-hover);
+        }
+
+        .hero-subtitle {
+            font-size: 16px;
+            color: var(--text-muted);
+            line-height: 1.65;
+            max-width: 480px;
+            margin-bottom: 36px;
+        }
+
+        .feature-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .feature-row {
+            display: flex;
+            gap: 18px;
+            padding: 20px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .feature-mark {
+            flex-shrink: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            background: var(--accent);
+            margin-top: 6px;
+        }
+
+        .feature-row h3 {
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .feature-row p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        .auth-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 32px;
+            position: sticky;
+            top: 32px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0 0 14px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-faint);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+
+        .tab-btn.active {
+            color: var(--text);
+            border-color: var(--text);
+        }
+
+        .steps-mini {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-faint);
+            line-height: 1.6;
+        }
+
+        .steps-mini strong {
+            color: var(--text-muted);
+        }
+
+        /* --- App (vista-app) --- */
+
+        #vista-app {
+            padding-top: 28px;
+        }
+
+        .appbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-strong);
+            margin-bottom: 0;
+        }
+
+        .appbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .appbar-brand img {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+        }
+
+        .appbar-brand span {
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+        }
+
+        .appbar-user {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .appbar-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .app-tabs {
+            display: flex;
+            gap: 28px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 36px;
+            overflow-x: auto;
+        }
+
+        .app-tab {
+            padding: 16px 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-faint);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            white-space: nowrap;
+        }
+
+        .app-tab.active {
+            color: var(--text);
+            border-color: var(--accent-hover);
+        }
+
+        .app-section {
+            display: grid;
+            grid-template-columns: 5fr 7fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .app-section.single {
+            grid-template-columns: 1fr;
+            max-width: 640px;
+        }
+
+        .panel-form {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 28px;
+        }
+
+        .panel-form h2 {
+            margin-bottom: 20px;
+        }
+
+        .image-slot {
+            margin-bottom: 20px;
+        }
+
+        .image-slot-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 140px;
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-preview .placeholder-text {
+            margin: 0;
+            font-size: 12px;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 14px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .checkbox-row input {
+            margin-top: 2px;
+            width: auto;
+        }
+
+        .checkbox-row label {
+            text-transform: none;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            letter-spacing: 0;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mi-tarjeta-banner {
+            border: 1px solid var(--border-strong);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .mi-tarjeta-banner .eyebrow {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .mi-tarjeta-banner .nombre {
+            font-size: 18px;
+            font-weight: 700;
         }
 
         .list-header {
@@ -181,62 +569,49 @@
             align-items: center;
             gap: 12px;
             margin-bottom: 16px;
+            flex-wrap: wrap;
         }
 
-        .search-input {
+        .search-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-row input, .search-row select {
             flex: 1;
         }
 
-        .form-message {
-            font-size: 13px;
-            margin-bottom: 12px;
-            padding: 10px 12px;
-            border-radius: 8px;
-        }
-
-        .form-message.error {
-            color: var(--error);
-            background-color: var(--error-bg);
-        }
-
-        .form-message.success {
-            color: #166534;
-            background-color: #f0fdf4;
-        }
-
-        .previews {
+        .tarjetas-list {
             display: flex;
-            gap: 10px;
-            margin-top: 4px;
-        }
-
-        .previews img {
-            max-width: 110px;
-            max-height: 70px;
-            object-fit: cover;
-            border-radius: 6px;
-            border: 1px solid var(--border);
+            flex-direction: column;
         }
 
         .tarjeta-card {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
+            border-top: 1px solid var(--border);
+            padding: 20px 0;
         }
 
         .tarjeta-imagenes {
             display: flex;
             gap: 10px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         .tarjeta-imagenes img {
-            max-width: 160px;
-            max-height: 100px;
+            max-width: 150px;
+            max-height: 95px;
             object-fit: cover;
             border-radius: 6px;
             border: 1px solid var(--border);
             cursor: zoom-in;
+        }
+
+        .tarjeta-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
         }
 
         .tarjeta-nombre {
@@ -248,7 +623,19 @@
         .tarjeta-meta {
             font-size: 13px;
             color: var(--text-muted);
-            margin: 0 0 10px;
+            margin: 0 0 12px;
+        }
+
+        .tarjeta-categoria {
+            display: inline-block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--accent-hover);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 2px 7px;
+            margin-bottom: 8px;
         }
 
         .tarjeta-acciones {
@@ -258,461 +645,356 @@
             margin-bottom: 8px;
         }
 
-        .tarjeta-acciones a {
+        .tarjeta-acciones a, .tarjeta-acciones button {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: 13px;
+            font-size: 12px;
+            font-family: inherit;
             text-decoration: none;
-            color: var(--primary);
-            background-color: #eef2ff;
-            border-radius: 999px;
-            padding: 6px 12px;
+            color: var(--text);
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 6px 10px;
+            cursor: pointer;
         }
 
-        .tarjeta-acciones a:hover {
-            background-color: #e0e7ff;
+        .tarjeta-acciones a:hover, .tarjeta-acciones button:hover {
+            border-color: var(--text);
         }
 
         .tarjeta-notas {
             font-size: 13px;
             color: var(--text-muted);
-            margin: 0;
+            margin: 8px 0 0;
             white-space: pre-wrap;
-        }
-
-        .placeholder-text {
-            color: #9ca3af;
-            text-align: center;
-            font-style: italic;
-            margin: 12px 0;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid var(--border);
-            background-color: var(--bg);
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        .tab-btn.active {
-            background-color: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .top-bar-acciones {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
         }
 
         .estado-api-key {
             font-size: 12px;
             color: var(--text-muted);
-            margin-top: 4px;
         }
 
-        /* --- Landing / pantalla de bienvenida --- */
-
-        .landing-hero {
-            text-align: center;
-            padding: 24px 0 8px;
+        .cuenta-section {
+            margin-bottom: 36px;
+            padding-bottom: 36px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .brand-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 24px;
+        .cuenta-section:last-child {
+            border-bottom: none;
         }
 
-        .brand-logo {
-            width: 34px;
-            height: 34px;
-            border-radius: 9px;
-        }
-
-        .brand-name {
-            font-weight: 700;
-            font-size: 13px;
-            color: var(--text-muted);
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-        }
-
-        .hero-title {
-            font-size: 36px;
-            line-height: 1.25;
-            font-weight: 800;
-            letter-spacing: -0.01em;
-            margin: 0 0 18px;
-            color: var(--text-main);
-        }
-
-        .hero-title .accent {
-            color: var(--primary);
-        }
-
-        .hero-subtitle {
-            font-size: 16px;
-            color: var(--text-muted);
-            max-width: 620px;
-            margin: 0 auto 40px;
-            line-height: 1.6;
-        }
-
-        .features {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 28px;
-        }
-
-        .feature-card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 24px 18px;
-            text-align: center;
-        }
-
-        .feature-icon {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .feature-title {
-            font-size: 15px;
-            font-weight: 700;
-            margin: 0 0 6px;
-        }
-
-        .feature-text {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin: 0;
-            line-height: 1.5;
-        }
-
-        .auth-panel {
-            padding: 32px;
-        }
-
-        .auth-panel-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            align-items: start;
-        }
-
-        .steps-title {
-            font-size: 16px;
-            font-weight: 700;
-            margin: 0 0 18px;
-        }
-
-        .steps {
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-        }
-
-        .step {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.5;
-        }
-
-        .step strong {
-            color: var(--text-main);
-        }
-
-        .step-num {
-            flex-shrink: 0;
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            background-color: var(--primary);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .btn-block {
-            width: 100%;
-        }
-
-        .landing-footer {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 12px;
-            margin-top: 8px;
-        }
-
-        @media (max-width: 760px) {
-            .features {
+        @media (max-width: 860px) {
+            .landing-grid, .app-section {
                 grid-template-columns: 1fr;
+                gap: 32px;
             }
 
-            .auth-panel-grid {
+            .auth-card {
+                position: static;
+            }
+
+            .form-grid {
                 grid-template-columns: 1fr;
-                gap: 28px;
             }
 
             .hero-title {
-                font-size: 28px;
+                font-size: 2rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container" id="vista-cargando">
+    <div class="shell shell-narrow" id="vista-cargando">
         <p class="placeholder-text">Cargando...</p>
     </div>
 
-    <div class="container" id="vista-auth" style="display: none;">
-        <header class="landing-hero">
-            <div class="brand-row">
-                <img src="/icons/icon-192.png" alt="" class="brand-logo">
-                <span class="brand-name">Billetera Virtual</span>
-            </div>
-            <h1 class="hero-title">Todas tus tarjetas de presentación,<br><span class="accent">en un solo lugar</span></h1>
-            <p class="hero-subtitle">Guarda las tarjetas que recibes, deja que la inteligencia artificial las lea por ti, y contacta a cualquiera con un clic — llamada, WhatsApp, correo o redes sociales.</p>
-        </header>
+    <div class="shell" id="vista-auth" style="display: none;">
+        <div class="topmark">
+            <img src="/icons/icon-192.png" alt="">
+            <span>Billetera Virtual</span>
+        </div>
 
-        <section class="features">
-            <div class="feature-card">
-                <div class="feature-icon">📸</div>
-                <h3 class="feature-title">Escanea con OCR</h3>
-                <p class="feature-text">Toma una foto de la tarjeta y la IA completa nombre, empresa, teléfono y más por ti.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🔒</div>
-                <h3 class="feature-title">Tu colección privada</h3>
-                <p class="feature-text">Cada cuenta guarda sus propias tarjetas. Nadie más puede verlas.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">⚡</div>
-                <h3 class="feature-title">Contacta en un clic</h3>
-                <p class="feature-text">Llama, escribe por WhatsApp o visita su sitio y redes sociales sin escribir nada.</p>
-            </div>
-        </section>
+        <div class="landing-grid">
+            <div>
+                <div class="hero-eyebrow"><span class="dash"></span> Directorio + escáner de tarjetas</div>
+                <h1 class="hero-title">Tus contactos de negocio,<br>organizados <span class="accent">sin escribir nada</span>.</h1>
+                <p class="hero-subtitle">Toma una foto de la tarjeta que te dieron y la inteligencia artificial completa los datos. Guarda tu propia tarjeta para compartirla, y busca proveedores que ya guardó alguien más en el sistema.</p>
 
-        <section class="panel auth-panel">
-            <div class="auth-panel-grid">
-                <div>
-                    <h2 class="steps-title">Cómo crear tu cuenta</h2>
-                    <div class="steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <div><strong>Tu nombre y teléfono.</strong><br>El teléfono será tu usuario para entrar.</div>
+                <div class="feature-list">
+                    <div class="feature-row">
+                        <div class="feature-mark"></div>
+                        <div>
+                            <h3>Escaneo con OCR</h3>
+                            <p>Una foto del frente de la tarjeta y la IA llena nombre, empresa, teléfono y más.</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <div><strong>Tu número de DPI.</strong><br>Lo usamos como contraseña — nada nuevo que recordar.</div>
+                    </div>
+                    <div class="feature-row">
+                        <div class="feature-mark"></div>
+                        <div>
+                            <h3>Directorio de proveedores</h3>
+                            <p>Busca entre las tarjetas que ya guardó cualquier persona del sistema, organizadas por categoría.</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <div><strong>Listo.</strong><br>Ya puedes empezar a guardar tarjetas al instante.</div>
+                    </div>
+                    <div class="feature-row">
+                        <div class="feature-mark"></div>
+                        <div>
+                            <h3>Tu propia tarjeta, lista para enviar</h3>
+                            <p>Marca una tarjeta como la tuya y compártela por WhatsApp con un enlace directo.</p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div>
-                    <div class="tabs">
-                        <button type="button" class="tab-btn active" data-tab="login">Iniciar sesión</button>
-                        <button type="button" class="tab-btn" data-tab="registro">Crear cuenta</button>
+            <div class="auth-card">
+                <div class="tabs">
+                    <button type="button" class="tab-btn active" data-tab="login">Iniciar sesión</button>
+                    <button type="button" class="tab-btn" data-tab="registro">Crear cuenta</button>
+                </div>
+
+                <div id="auth-message"></div>
+
+                <form id="form-login">
+                    <div class="field">
+                        <label for="login-telefono">Teléfono</label>
+                        <input id="login-telefono" name="telefono" type="tel" required>
                     </div>
+                    <div class="field">
+                        <label for="login-dpi">DPI (contraseña)</label>
+                        <input id="login-dpi" name="dpi" type="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-block">Entrar</button>
+                </form>
 
-                    <div id="auth-message"></div>
+                <form id="form-registro" style="display: none;">
+                    <div class="field">
+                        <label for="registro-nombre">Nombre completo</label>
+                        <input id="registro-nombre" name="nombre" type="text" required>
+                    </div>
+                    <div class="field">
+                        <label for="registro-telefono">Teléfono</label>
+                        <input id="registro-telefono" name="telefono" type="tel" required>
+                    </div>
+                    <div class="field">
+                        <label for="registro-dpi">DPI (será tu contraseña)</label>
+                        <input id="registro-dpi" name="dpi" type="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-block">Crear cuenta</button>
+                </form>
 
-                    <form id="form-login">
-                        <div class="field" style="margin-bottom: 14px;">
-                            <label for="login-telefono">Teléfono</label>
-                            <input id="login-telefono" name="telefono" type="tel" required>
-                        </div>
-                        <div class="field" style="margin-bottom: 14px;">
-                            <label for="login-dpi">DPI (contraseña)</label>
-                            <input id="login-dpi" name="dpi" type="password" required>
-                        </div>
-                        <button type="submit" class="btn btn-block">Entrar</button>
-                    </form>
-
-                    <form id="form-registro" style="display: none;">
-                        <div class="field" style="margin-bottom: 14px;">
-                            <label for="registro-nombre">Nombre completo</label>
-                            <input id="registro-nombre" name="nombre" type="text" required>
-                        </div>
-                        <div class="field" style="margin-bottom: 14px;">
-                            <label for="registro-telefono">Teléfono</label>
-                            <input id="registro-telefono" name="telefono" type="tel" required>
-                        </div>
-                        <div class="field" style="margin-bottom: 14px;">
-                            <label for="registro-dpi">DPI (será tu contraseña)</label>
-                            <input id="registro-dpi" name="dpi" type="password" required>
-                        </div>
-                        <button type="submit" class="btn btn-block">Crear cuenta</button>
-                    </form>
+                <div class="steps-mini">
+                    <strong>Tu usuario es tu teléfono.</strong> Tu contraseña es tu DPI — nada nuevo que recordar.
                 </div>
             </div>
-        </section>
-
-        <p class="landing-footer">🇬🇹 Billetera Virtual — guarda y consulta tus tarjetas de presentación.</p>
+        </div>
     </div>
 
-    <div class="container" id="vista-app" style="display: none;">
-        <div class="panel">
-            <div class="top-bar">
-                <div>
-                    <strong id="saludo-usuario"></strong>
-                    <div class="estado-api-key" id="estado-api-key"></div>
+    <div class="shell" id="vista-app" style="display: none;">
+        <div class="appbar">
+            <div>
+                <div class="appbar-brand">
+                    <img src="/icons/icon-192.png" alt="">
+                    <span>Billetera Virtual</span>
                 </div>
-                <div class="top-bar-acciones">
-                    <a id="link-admin" class="btn btn-secondary btn-sm" href="/admin" style="display: none;">Panel Admin</a>
-                    <button id="btn-config" type="button" class="btn btn-secondary btn-sm">Configuración</button>
-                    <button id="btn-logout" type="button" class="btn btn-secondary btn-sm">Cerrar sesión</button>
-                </div>
+                <div class="appbar-user" id="saludo-usuario"></div>
+            </div>
+            <div class="appbar-actions">
+                <a id="link-admin" class="btn btn-outline btn-sm" href="/admin" style="display: none;">Panel admin</a>
+                <button id="btn-logout" type="button" class="btn btn-outline btn-sm">Cerrar sesión</button>
             </div>
         </div>
 
-        <div class="panel" id="panel-config" style="display: none;">
-            <h2>Configuración</h2>
-            <p class="subtitle">Tu API key de OpenAI se usa para extraer automáticamente los datos desde la foto de la tarjeta (OCR). Se guarda asociada únicamente a tu cuenta.</p>
-            <div class="field" style="margin-bottom: 12px;">
-                <label for="input-openai-key">API key de OpenAI</label>
-                <input id="input-openai-key" type="password" placeholder="sk-...">
-            </div>
-            <button id="btn-guardar-key" type="button" class="btn btn-sm">Guardar API key</button>
-        </div>
+        <nav class="app-tabs">
+            <button type="button" class="app-tab active" data-vista="mis-tarjetas">Mis tarjetas</button>
+            <button type="button" class="app-tab" data-vista="directorio">Buscador de proveedores</button>
+            <button type="button" class="app-tab" data-vista="cuenta">Mi cuenta</button>
+        </nav>
 
-        <div class="panel">
-            <h2>Agregar tarjeta</h2>
-            <div id="form-message"></div>
-            <form id="form-tarjeta">
-                <div class="form-grid">
-                    <div class="field">
-                        <label for="nombre">Nombre *</label>
-                        <input id="nombre" name="nombre" type="text" required>
-                    </div>
-                    <div class="field">
-                        <label for="empresa">Empresa</label>
-                        <input id="empresa" name="empresa" type="text">
-                    </div>
-                    <div class="field">
-                        <label for="cargo">Cargo</label>
-                        <input id="cargo" name="cargo" type="text">
-                    </div>
-                    <div class="field">
-                        <label for="telefono">Teléfono</label>
-                        <input id="telefono" name="telefono" type="tel">
-                    </div>
-                    <div class="field">
-                        <label for="email">Email</label>
-                        <input id="email" name="email" type="email">
-                    </div>
-                    <div class="field">
-                        <label for="sitioWeb">Sitio web</label>
-                        <input id="sitioWeb" name="sitioWeb" type="text">
-                    </div>
-                    <div class="field full">
-                        <label for="notas">Notas</label>
-                        <textarea id="notas" name="notas"></textarea>
-                    </div>
+        <!-- ===== Mis tarjetas ===== -->
+        <section id="vista-mis-tarjetas" class="app-section">
+            <div>
+                <div class="panel-form">
+                    <h2 id="form-tarjeta-titulo">Agregar tarjeta</h2>
+                    <div id="form-message"></div>
+                    <form id="form-tarjeta">
+                        <div class="image-slot">
+                            <div class="image-slot-label">
+                                <label for="imagenFrente">Foto del frente</label>
+                                <button type="button" class="btn-ghost" id="btn-ocr">Escanear con OCR</button>
+                            </div>
+                            <div class="image-preview" id="preview-frente"><p class="placeholder-text">Sin foto</p></div>
+                            <input id="imagenFrente" name="imagenFrente" type="file" accept="image/*">
+                        </div>
+
+                        <div class="field">
+                            <label for="nombre">Nombre *</label>
+                            <input id="nombre" name="nombre" type="text" required>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="field">
+                                <label for="empresa">Empresa</label>
+                                <input id="empresa" name="empresa" type="text">
+                            </div>
+                            <div class="field">
+                                <label for="cargo">Cargo</label>
+                                <input id="cargo" name="cargo" type="text">
+                            </div>
+                            <div class="field">
+                                <label for="telefono">Teléfono</label>
+                                <input id="telefono" name="telefono" type="tel">
+                            </div>
+                            <div class="field">
+                                <label for="email">Email</label>
+                                <input id="email" name="email" type="email">
+                            </div>
+                            <div class="field full">
+                                <label for="sitioWeb">Sitio web</label>
+                                <input id="sitioWeb" name="sitioWeb" type="text">
+                            </div>
+                            <div class="field full">
+                                <label for="categoria">Categoría</label>
+                                <select id="categoria" name="categoria">
+                                    <option value="">Sin categoría</option>
+                                </select>
+                            </div>
+                            <div class="field full">
+                                <label for="notas">Notas</label>
+                                <textarea id="notas" name="notas"></textarea>
+                            </div>
+                            <div class="field">
+                                <label for="facebook">Facebook</label>
+                                <input id="facebook" name="facebook" type="text" placeholder="usuario o URL">
+                            </div>
+                            <div class="field">
+                                <label for="instagram">Instagram</label>
+                                <input id="instagram" name="instagram" type="text" placeholder="usuario o URL">
+                            </div>
+                            <div class="field">
+                                <label for="linkedin">LinkedIn</label>
+                                <input id="linkedin" name="linkedin" type="text" placeholder="usuario o URL">
+                            </div>
+                            <div class="field">
+                                <label for="tiktok">TikTok</label>
+                                <input id="tiktok" name="tiktok" type="text" placeholder="usuario o URL">
+                            </div>
+                            <div class="field full">
+                                <label for="twitter">X / Twitter</label>
+                                <input id="twitter" name="twitter" type="text" placeholder="usuario o URL">
+                            </div>
+                        </div>
+
+                        <div class="image-slot">
+                            <div class="image-slot-label">
+                                <label for="imagenReverso">Foto del reverso (si tiene dos lados)</label>
+                            </div>
+                            <div class="image-preview" id="preview-reverso"><p class="placeholder-text">Sin foto</p></div>
+                            <input id="imagenReverso" name="imagenReverso" type="file" accept="image/*">
+                        </div>
+
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="checkbox-mi-tarjeta">
+                            <label for="checkbox-mi-tarjeta">Esta es mi tarjeta personal — la que voy a compartir con otros.</label>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn" id="btn-guardar">Guardar tarjeta</button>
+                            <button type="button" class="btn btn-outline" id="btn-cancelar-edicion" style="display: none;">Cancelar edición</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div>
+                <div id="resumen-mi-tarjeta"></div>
+
+                <div class="list-header">
+                    <h2>Tarjetas guardadas</h2>
+                    <button type="button" class="btn-ghost" id="btn-actualizar">Actualizar</button>
+                </div>
+                <div class="search-row">
+                    <input id="buscador" type="text" placeholder="Buscar por nombre o empresa...">
+                </div>
+                <div class="tarjetas-list" id="tarjetas-container">
+                    <p class="placeholder-text">Cargando tarjetas...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Buscador de proveedores ===== -->
+        <section id="vista-directorio" class="app-section single" style="display: none;">
+            <div>
+                <h2 style="margin-bottom: 16px;">Buscador de proveedores</h2>
+                <div class="search-row">
+                    <input id="buscador-directorio" type="text" placeholder="Buscar por nombre o empresa...">
+                    <select id="filtro-categoria-directorio">
+                        <option value="">Todas las categorías</option>
+                    </select>
+                </div>
+                <div class="tarjetas-list" id="directorio-container">
+                    <p class="placeholder-text">Cargando directorio...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Mi cuenta ===== -->
+        <section id="vista-cuenta" class="app-section single" style="display: none;">
+            <div>
+                <div class="cuenta-section">
+                    <h2 style="margin-bottom: 16px;">Datos de la cuenta</h2>
+                    <div id="cuenta-message"></div>
+                    <form id="form-cuenta">
+                        <div class="field">
+                            <label for="cuenta-nombre">Nombre</label>
+                            <input id="cuenta-nombre" name="nombre" type="text">
+                        </div>
+                        <div class="field">
+                            <label for="cuenta-telefono">Teléfono (usuario)</label>
+                            <input id="cuenta-telefono" name="telefono" type="tel">
+                        </div>
+                        <div class="field">
+                            <label for="cuenta-dpi-nuevo">Nuevo DPI (déjalo vacío para no cambiar la contraseña)</label>
+                            <input id="cuenta-dpi-nuevo" name="dpiNuevo" type="password">
+                        </div>
+                        <div class="field">
+                            <label for="cuenta-dpi-actual">Tu DPI actual (para confirmar)</label>
+                            <input id="cuenta-dpi-actual" name="dpiActual" type="password" required>
+                        </div>
+                        <button type="submit" class="btn">Guardar cambios</button>
+                    </form>
                 </div>
 
-                <h3>Foto de la tarjeta</h3>
-                <div class="form-grid">
-                    <div class="field">
-                        <label for="imagenFrente">Frente</label>
-                        <input id="imagenFrente" name="imagenFrente" type="file" accept="image/*">
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-ocr" style="margin-top: 4px;">🔍 Escanear con OCR</button>
+                <div class="cuenta-section">
+                    <h2 style="margin-bottom: 8px;">API key de OpenAI</h2>
+                    <p class="placeholder-text" style="margin: 0 0 16px;">Se usa para el escaneo OCR de tus tarjetas. Solo tú la puedes ver o cambiar.</p>
+                    <p class="estado-api-key" id="estado-api-key"></p>
+                    <div class="field" style="margin-top: 12px;">
+                        <label for="input-openai-key">API key</label>
+                        <input id="input-openai-key" type="password" placeholder="sk-...">
                     </div>
-                    <div class="field">
-                        <label for="imagenReverso">Reverso (si la tarjeta tiene dos lados)</label>
-                        <input id="imagenReverso" name="imagenReverso" type="file" accept="image/*">
-                    </div>
+                    <button id="btn-guardar-key" type="button" class="btn btn-sm">Guardar API key</button>
                 </div>
-                <div class="previews" id="previews"></div>
-
-                <h3>Redes sociales (opcional)</h3>
-                <div class="form-grid">
-                    <div class="field">
-                        <label for="facebook">Facebook</label>
-                        <input id="facebook" name="facebook" type="text" placeholder="usuario o URL">
-                    </div>
-                    <div class="field">
-                        <label for="instagram">Instagram</label>
-                        <input id="instagram" name="instagram" type="text" placeholder="usuario o URL">
-                    </div>
-                    <div class="field">
-                        <label for="linkedin">LinkedIn</label>
-                        <input id="linkedin" name="linkedin" type="text" placeholder="usuario o URL">
-                    </div>
-                    <div class="field">
-                        <label for="tiktok">TikTok</label>
-                        <input id="tiktok" name="tiktok" type="text" placeholder="usuario o URL">
-                    </div>
-                    <div class="field">
-                        <label for="twitter">X / Twitter</label>
-                        <input id="twitter" name="twitter" type="text" placeholder="usuario o URL">
-                    </div>
-                </div>
-
-                <button type="submit" class="btn" id="btn-guardar" style="margin-top: 8px;">Guardar Tarjeta</button>
-            </form>
-        </div>
-
-        <div class="panel">
-            <div class="list-header">
-                <h2 style="margin-bottom: 0;">Tarjetas guardadas</h2>
-                <button type="button" class="btn btn-secondary" id="btn-actualizar">Actualizar</button>
             </div>
-            <input class="search-input" id="buscador" type="text" placeholder="Buscar por nombre o empresa...">
-            <div id="tarjetas-container" style="margin-top: 16px;">
-                <p class="placeholder-text">Cargando tarjetas...</p>
-            </div>
-        </div>
+        </section>
     </div>
 
     <script>
         let tarjetas = [];
+        let directorio = [];
+        let categorias = [];
         let imagenFrenteBase64 = "";
         let imagenReversoBase64 = "";
         let usuarioActual = null;
+        let editandoId = null;
 
         const REDES = [
-            { campo: "facebook", etiqueta: "Facebook", icono: "📘", base: "https://facebook.com/" },
-            { campo: "instagram", etiqueta: "Instagram", icono: "📸", base: "https://instagram.com/" },
-            { campo: "linkedin", etiqueta: "LinkedIn", icono: "💼", base: "https://linkedin.com/in/" },
-            { campo: "tiktok", etiqueta: "TikTok", icono: "🎵", base: "https://tiktok.com/@" },
-            { campo: "twitter", etiqueta: "X", icono: "✖️", base: "https://x.com/" }
+            { campo: "facebook", etiqueta: "Facebook", base: "https://facebook.com/" },
+            { campo: "instagram", etiqueta: "Instagram", base: "https://instagram.com/" },
+            { campo: "linkedin", etiqueta: "LinkedIn", base: "https://linkedin.com/in/" },
+            { campo: "tiktok", etiqueta: "TikTok", base: "https://tiktok.com/@" },
+            { campo: "twitter", etiqueta: "X", base: "https://x.com/" }
         ];
 
         function escapeHtml(value) {
@@ -731,17 +1013,20 @@
 
         function actualizarEstadoApiKey() {
             document.getElementById("estado-api-key").textContent = usuarioActual.tieneApiKey
-                ? "✅ API key de OpenAI configurada"
-                : "⚠️ No has configurado tu API key de OpenAI (necesaria para el OCR)";
+                ? "API key configurada."
+                : "Todavía no has configurado tu API key (necesaria para el OCR).";
         }
 
         function mostrarApp() {
             document.getElementById("vista-cargando").style.display = "none";
             document.getElementById("vista-auth").style.display = "none";
             document.getElementById("vista-app").style.display = "block";
-            document.getElementById("saludo-usuario").textContent = `Hola, ${usuarioActual.nombre}`;
+            document.getElementById("saludo-usuario").textContent = `${usuarioActual.nombre} · ${usuarioActual.telefono}`;
             actualizarEstadoApiKey();
             document.getElementById("link-admin").style.display = usuarioActual.rol === "admin" ? "inline-flex" : "none";
+            document.getElementById("cuenta-nombre").value = usuarioActual.nombre;
+            document.getElementById("cuenta-telefono").value = usuarioActual.telefono;
+            cargarCategorias();
             cargarTarjetas();
         }
 
@@ -759,11 +1044,11 @@
             }
         }
 
-        // --- Tabs login / registro ---
+        // --- Tabs login / registro (landing) ---
 
-        document.querySelectorAll(".tab-btn").forEach((btn) => {
+        document.querySelectorAll(".tabs .tab-btn").forEach((btn) => {
             btn.addEventListener("click", () => {
-                document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+                document.querySelectorAll(".tabs .tab-btn").forEach((b) => b.classList.remove("active"));
                 btn.classList.add("active");
                 document.getElementById("form-login").style.display = btn.dataset.tab === "login" ? "block" : "none";
                 document.getElementById("form-registro").style.display = btn.dataset.tab === "registro" ? "block" : "none";
@@ -787,7 +1072,7 @@
                 usuarioActual = data;
                 mostrarApp();
             } catch (error) {
-                msg.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+                msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
             }
         });
 
@@ -807,7 +1092,7 @@
                 usuarioActual = data;
                 mostrarApp();
             } catch (error) {
-                msg.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+                msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
             }
         });
 
@@ -818,12 +1103,35 @@
             mostrarAuth();
         });
 
-        // --- Configuración (API key de OpenAI) ---
+        // --- Tabs de la app (Mis tarjetas / Directorio / Cuenta) ---
 
-        document.getElementById("btn-config").addEventListener("click", () => {
-            const panel = document.getElementById("panel-config");
-            panel.style.display = panel.style.display === "none" ? "block" : "none";
+        document.querySelectorAll(".app-tab").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".app-tab").forEach((b) => b.classList.remove("active"));
+                btn.classList.add("active");
+                document.getElementById("vista-mis-tarjetas").style.display = btn.dataset.vista === "mis-tarjetas" ? "grid" : "none";
+                document.getElementById("vista-directorio").style.display = btn.dataset.vista === "directorio" ? "grid" : "none";
+                document.getElementById("vista-cuenta").style.display = btn.dataset.vista === "cuenta" ? "grid" : "none";
+                if (btn.dataset.vista === "directorio") cargarDirectorio();
+            });
         });
+
+        // --- Categorías ---
+
+        async function cargarCategorias() {
+            try {
+                const r = await fetch("/api/categorias");
+                if (!r.ok) return;
+                categorias = await r.json();
+                const opciones = categorias.map((c) => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`).join("");
+                document.getElementById("categoria").innerHTML = '<option value="">Sin categoría</option>' + opciones;
+                document.getElementById("filtro-categoria-directorio").innerHTML = '<option value="">Todas las categorías</option>' + opciones;
+            } catch {
+                // Si falla, el formulario queda con "Sin categoría" como única opción.
+            }
+        }
+
+        // --- Configuración (API key de OpenAI) ---
 
         document.getElementById("btn-guardar-key").addEventListener("click", async () => {
             const input = document.getElementById("input-openai-key");
@@ -841,6 +1149,36 @@
                 alert("API key guardada.");
             } catch (error) {
                 alert(error.message);
+            }
+        });
+
+        // --- Mi cuenta ---
+
+        document.getElementById("form-cuenta").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const msg = document.getElementById("cuenta-message");
+            msg.innerHTML = "";
+            try {
+                const r = await fetch("/api/usuario", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        nombre: form.nombre.value,
+                        telefono: form.telefono.value,
+                        dpiNuevo: form.dpiNuevo.value,
+                        dpiActual: form.dpiActual.value
+                    })
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || "No se pudo actualizar la cuenta.");
+                usuarioActual = data;
+                form.dpiNuevo.value = "";
+                form.dpiActual.value = "";
+                document.getElementById("saludo-usuario").textContent = `${usuarioActual.nombre} · ${usuarioActual.telefono}`;
+                msg.innerHTML = '<p class="message success">Cuenta actualizada.</p>';
+            } catch (error) {
+                msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
             }
         });
 
@@ -868,34 +1206,33 @@
             });
         }
 
-        function actualizarPreviews() {
-            const contenedor = document.getElementById("previews");
-            const imgs = [imagenFrenteBase64, imagenReversoBase64].filter(Boolean);
-            contenedor.innerHTML = imgs.map((src) => `<img src="${src}" alt="Vista previa">`).join("");
+        function actualizarPreview(slotId, src) {
+            const contenedor = document.getElementById(slotId);
+            contenedor.innerHTML = src ? `<img src="${src}" alt="Vista previa">` : '<p class="placeholder-text">Sin foto</p>';
         }
 
         document.getElementById("imagenFrente").addEventListener("change", async (e) => {
             const file = e.target.files[0];
-            if (!file) { imagenFrenteBase64 = ""; actualizarPreviews(); return; }
+            if (!file) { imagenFrenteBase64 = ""; actualizarPreview("preview-frente", ""); return; }
             try {
                 imagenFrenteBase64 = await comprimirImagen(file);
+                actualizarPreview("preview-frente", imagenFrenteBase64);
             } catch (error) {
-                document.getElementById("form-message").innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+                document.getElementById("form-message").innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
                 imagenFrenteBase64 = "";
             }
-            actualizarPreviews();
         });
 
         document.getElementById("imagenReverso").addEventListener("change", async (e) => {
             const file = e.target.files[0];
-            if (!file) { imagenReversoBase64 = ""; actualizarPreviews(); return; }
+            if (!file) { imagenReversoBase64 = ""; actualizarPreview("preview-reverso", ""); return; }
             try {
                 imagenReversoBase64 = await comprimirImagen(file);
+                actualizarPreview("preview-reverso", imagenReversoBase64);
             } catch (error) {
-                document.getElementById("form-message").innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+                document.getElementById("form-message").innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
                 imagenReversoBase64 = "";
             }
-            actualizarPreviews();
         });
 
         // --- OCR ---
@@ -905,7 +1242,7 @@
             messageBox.innerHTML = "";
 
             if (!imagenFrenteBase64) {
-                messageBox.innerHTML = '<p class="form-message error">Primero selecciona la foto del frente de la tarjeta.</p>';
+                messageBox.innerHTML = '<p class="message error">Primero selecciona la foto del frente de la tarjeta.</p>';
                 return;
             }
 
@@ -930,23 +1267,22 @@
                 if (datos.email) form.email.value = datos.email;
                 if (datos.sitioWeb) form.sitioWeb.value = datos.sitioWeb;
 
-                messageBox.innerHTML = '<p class="form-message success">Datos extraídos con OCR. Revísalos antes de guardar.</p>';
+                messageBox.innerHTML = '<p class="message success">Datos extraídos con OCR. Revísalos antes de guardar.</p>';
             } catch (error) {
-                messageBox.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+                messageBox.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
             } finally {
                 btn.disabled = false;
-                btn.textContent = "🔍 Escanear con OCR";
+                btn.textContent = "Escanear con OCR";
             }
         });
 
-        // --- Tarjetas ---
+        // --- Acciones de contacto ---
 
-        function whatsappUrl(telefono) {
+        function whatsappUrl(telefono, mensaje) {
             const digitos = (telefono || "").replace(/\D/g, "");
             if (!digitos) return null;
             const conCodigo = digitos.length <= 8 ? `502${digitos}` : digitos;
-            const mensaje = encodeURIComponent("Hola, nos contactamos por tu tarjeta de presentación.");
-            return `https://wa.me/${conCodigo}?text=${mensaje}`;
+            return `https://wa.me/${conCodigo}?text=${encodeURIComponent(mensaje)}`;
         }
 
         function urlRedSocial(red, valor) {
@@ -956,14 +1292,33 @@
             return red.base + v.replace(/^@/, "");
         }
 
-        function renderTarjetas(filtro) {
-            const container = document.getElementById("tarjetas-container");
-            const filtroLower = filtro.trim().toLowerCase();
+        function accionesTarjeta(t) {
+            const acciones = [];
+            const wa = whatsappUrl(t.telefono, "Hola, nos contactamos por tu tarjeta de presentación.");
+            if (wa) acciones.push(`<a href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`);
+            if (t.telefono) acciones.push(`<a href="tel:${escapeHtml(t.telefono)}">Llamar</a>`);
+            if (t.email) acciones.push(`<a href="mailto:${escapeHtml(t.email)}">Email</a>`);
+            if (t.sitioWeb) acciones.push(`<a href="${escapeHtml(t.sitioWeb)}" target="_blank" rel="noopener">Sitio web</a>`);
+            REDES.forEach((red) => {
+                const url = urlRedSocial(red, t[red.campo]);
+                if (url) acciones.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${red.etiqueta}</a>`);
+            });
+            return acciones;
+        }
 
-            const visibles = tarjetas.filter((t) => {
-                if (!filtroLower) return true;
-                return (t.nombre || "").toLowerCase().includes(filtroLower) ||
-                       (t.empresa || "").toLowerCase().includes(filtroLower);
+        // --- Render de listas (Mis tarjetas / Directorio) ---
+
+        function renderLista(lista, contenedorId, filtro, permitirEditar) {
+            const container = document.getElementById(contenedorId);
+            const filtroTexto = (filtro.texto || "").trim().toLowerCase();
+            const filtroCategoria = filtro.categoria || "";
+
+            const visibles = lista.filter((t) => {
+                const coincideTexto = !filtroTexto ||
+                    (t.nombre || "").toLowerCase().includes(filtroTexto) ||
+                    (t.empresa || "").toLowerCase().includes(filtroTexto);
+                const coincideCategoria = !filtroCategoria || t.categoria === filtroCategoria;
+                return coincideTexto && coincideCategoria;
             });
 
             if (visibles.length === 0) {
@@ -973,26 +1328,20 @@
 
             container.innerHTML = visibles.map((t) => {
                 const metaParts = [t.cargo, t.empresa].filter(Boolean).map(escapeHtml);
-
                 const imagenes = [t.imagenFrente, t.imagenReverso].filter(Boolean);
                 const imagenesHtml = imagenes.length
                     ? `<div class="tarjeta-imagenes">${imagenes.map((src) => `<img src="${src}" alt="Tarjeta de ${escapeHtml(t.nombre)}" onclick="window.open(this.src, '_blank')">`).join("")}</div>`
                     : "";
 
-                const acciones = [];
-                const wa = whatsappUrl(t.telefono);
-                if (wa) acciones.push(`<a href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
-                if (t.telefono) acciones.push(`<a href="tel:${escapeHtml(t.telefono)}">📞 Llamar</a>`);
-                if (t.email) acciones.push(`<a href="mailto:${escapeHtml(t.email)}">✉️ Email</a>`);
-                if (t.sitioWeb) acciones.push(`<a href="${escapeHtml(t.sitioWeb)}" target="_blank" rel="noopener">🌐 Sitio web</a>`);
-                REDES.forEach((red) => {
-                    const url = urlRedSocial(red, t[red.campo]);
-                    if (url) acciones.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${red.icono} ${red.etiqueta}</a>`);
-                });
+                const acciones = accionesTarjeta(t);
+                if (permitirEditar) {
+                    acciones.push(`<button type="button" data-editar="${t._id}">Editar</button>`);
+                }
 
                 return `
                     <div class="tarjeta-card">
                         ${imagenesHtml}
+                        ${t.categoria ? `<span class="tarjeta-categoria">${escapeHtml(t.categoria)}</span>` : ""}
                         <p class="tarjeta-nombre">${escapeHtml(t.nombre)}</p>
                         ${metaParts.length ? `<p class="tarjeta-meta">${metaParts.join(" · ")}</p>` : ""}
                         ${acciones.length ? `<div class="tarjeta-acciones">${acciones.join("")}</div>` : ""}
@@ -1000,6 +1349,47 @@
                     </div>
                 `;
             }).join("");
+
+            if (permitirEditar) {
+                container.querySelectorAll("button[data-editar]").forEach((btn) => {
+                    btn.addEventListener("click", () => iniciarEdicion(btn.dataset.editar));
+                });
+            }
+        }
+
+        function renderResumenMiTarjeta() {
+            const contenedor = document.getElementById("resumen-mi-tarjeta");
+            const miTarjeta = tarjetas.find((t) => t.esMiTarjeta);
+
+            if (!miTarjeta) {
+                contenedor.innerHTML = `
+                    <div class="mi-tarjeta-banner">
+                        <div>
+                            <div class="eyebrow">Tu tarjeta para compartir</div>
+                            <div class="nombre">Todavía no marcaste ninguna</div>
+                        </div>
+                        <p class="placeholder-text" style="margin: 0;">Marca el casillero "Esta es mi tarjeta personal" al guardar una.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const enlace = `${location.origin}/t?id=${miTarjeta._id}`;
+            const wa = whatsappUrl("", "");
+            const mensajeCompartir = encodeURIComponent(`Te comparto mi tarjeta de presentación: ${enlace}`);
+
+            contenedor.innerHTML = `
+                <div class="mi-tarjeta-banner">
+                    <div>
+                        <div class="eyebrow">Tu tarjeta para compartir</div>
+                        <div class="nombre">${escapeHtml(miTarjeta.nombre)}</div>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <a class="btn btn-sm" href="https://wa.me/?text=${mensajeCompartir}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
+                        <a class="btn btn-outline btn-sm" href="/t?id=${miTarjeta._id}" target="_blank" rel="noopener">Ver enlace público</a>
+                    </div>
+                </div>
+            `;
         }
 
         async function cargarTarjetas() {
@@ -1008,18 +1398,98 @@
             try {
                 const response = await fetch("/api/tarjetas");
                 if (response.status === 401) { mostrarAuth(); return; }
-                if (!response.ok) {
-                    throw new Error(`Error en el servidor: ${response.status} ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`Error en el servidor: ${response.status} ${response.statusText}`);
                 tarjetas = await response.json();
-                renderTarjetas(document.getElementById("buscador").value);
+                renderResumenMiTarjeta();
+                renderLista(tarjetas, "tarjetas-container", { texto: document.getElementById("buscador").value }, true);
             } catch (error) {
                 container.innerHTML = `<p class="placeholder-text">Ocurrió un error al cargar las tarjetas: ${escapeHtml(error.message)}</p>`;
             }
         }
 
+        async function cargarDirectorio() {
+            const container = document.getElementById("directorio-container");
+            container.innerHTML = '<p class="placeholder-text">Cargando directorio...</p>';
+            try {
+                const response = await fetch("/api/directorio");
+                if (response.status === 401) { mostrarAuth(); return; }
+                if (!response.ok) throw new Error(`Error en el servidor: ${response.status} ${response.statusText}`);
+                directorio = await response.json();
+                renderLista(directorio, "directorio-container", {
+                    texto: document.getElementById("buscador-directorio").value,
+                    categoria: document.getElementById("filtro-categoria-directorio").value
+                }, false);
+            } catch (error) {
+                container.innerHTML = `<p class="placeholder-text">Ocurrió un error al cargar el directorio: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
         document.getElementById("btn-actualizar").addEventListener("click", cargarTarjetas);
-        document.getElementById("buscador").addEventListener("input", (e) => renderTarjetas(e.target.value));
+        document.getElementById("buscador").addEventListener("input", () => {
+            renderLista(tarjetas, "tarjetas-container", { texto: document.getElementById("buscador").value }, true);
+        });
+        document.getElementById("buscador-directorio").addEventListener("input", () => {
+            renderLista(directorio, "directorio-container", {
+                texto: document.getElementById("buscador-directorio").value,
+                categoria: document.getElementById("filtro-categoria-directorio").value
+            }, false);
+        });
+        document.getElementById("filtro-categoria-directorio").addEventListener("change", () => {
+            renderLista(directorio, "directorio-container", {
+                texto: document.getElementById("buscador-directorio").value,
+                categoria: document.getElementById("filtro-categoria-directorio").value
+            }, false);
+        });
+
+        // --- Crear / editar tarjeta ---
+
+        function limpiarFormularioTarjeta() {
+            const form = document.getElementById("form-tarjeta");
+            form.reset();
+            imagenFrenteBase64 = "";
+            imagenReversoBase64 = "";
+            actualizarPreview("preview-frente", "");
+            actualizarPreview("preview-reverso", "");
+            editandoId = null;
+            document.getElementById("form-tarjeta-titulo").textContent = "Agregar tarjeta";
+            document.getElementById("btn-guardar").textContent = "Guardar tarjeta";
+            document.getElementById("btn-cancelar-edicion").style.display = "none";
+        }
+
+        function iniciarEdicion(id) {
+            const tarjeta = tarjetas.find((t) => t._id === id);
+            if (!tarjeta) return;
+
+            editandoId = id;
+            const form = document.getElementById("form-tarjeta");
+            form.nombre.value = tarjeta.nombre || "";
+            form.empresa.value = tarjeta.empresa || "";
+            form.cargo.value = tarjeta.cargo || "";
+            form.telefono.value = tarjeta.telefono || "";
+            form.email.value = tarjeta.email || "";
+            form.sitioWeb.value = tarjeta.sitioWeb || "";
+            form.notas.value = tarjeta.notas || "";
+            form.categoria.value = tarjeta.categoria || "";
+            form.facebook.value = tarjeta.facebook || "";
+            form.instagram.value = tarjeta.instagram || "";
+            form.linkedin.value = tarjeta.linkedin || "";
+            form.tiktok.value = tarjeta.tiktok || "";
+            form.twitter.value = tarjeta.twitter || "";
+            document.getElementById("checkbox-mi-tarjeta").checked = Boolean(tarjeta.esMiTarjeta);
+
+            imagenFrenteBase64 = tarjeta.imagenFrente || "";
+            imagenReversoBase64 = tarjeta.imagenReverso || "";
+            actualizarPreview("preview-frente", imagenFrenteBase64);
+            actualizarPreview("preview-reverso", imagenReversoBase64);
+
+            document.getElementById("form-tarjeta-titulo").textContent = `Editando: ${tarjeta.nombre}`;
+            document.getElementById("btn-guardar").textContent = "Actualizar tarjeta";
+            document.getElementById("btn-cancelar-edicion").style.display = "inline-block";
+            document.getElementById("form-message").innerHTML = "";
+            document.querySelector(".panel-form").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        document.getElementById("btn-cancelar-edicion").addEventListener("click", limpiarFormularioTarjeta);
 
         document.getElementById("form-tarjeta").addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -1036,21 +1506,25 @@
                 email: form.email.value,
                 sitioWeb: form.sitioWeb.value,
                 notas: form.notas.value,
+                categoria: form.categoria.value,
                 facebook: form.facebook.value,
                 instagram: form.instagram.value,
                 linkedin: form.linkedin.value,
                 tiktok: form.tiktok.value,
                 twitter: form.twitter.value,
+                esMiTarjeta: document.getElementById("checkbox-mi-tarjeta").checked,
                 imagenFrente: imagenFrenteBase64,
                 imagenReverso: imagenReversoBase64
             };
 
             btn.disabled = true;
-            btn.textContent = "Guardando...";
+            btn.textContent = editandoId ? "Actualizando..." : "Guardando...";
 
             try {
-                const response = await fetch("/api/tarjetas", {
-                    method: "POST",
+                const url = editandoId ? `/api/tarjetas/${editandoId}` : "/api/tarjetas";
+                const method = editandoId ? "PUT" : "POST";
+                const response = await fetch(url, {
+                    method,
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(datos)
                 });
@@ -1063,17 +1537,15 @@
                     throw new Error(resultado.error || `Error en el servidor: ${response.status}`);
                 }
 
-                form.reset();
-                imagenFrenteBase64 = "";
-                imagenReversoBase64 = "";
-                actualizarPreviews();
-                messageBox.innerHTML = '<p class="form-message success">Tarjeta guardada correctamente.</p>';
+                const eraEdicion = Boolean(editandoId);
+                limpiarFormularioTarjeta();
+                messageBox.innerHTML = `<p class="message success">${eraEdicion ? "Tarjeta actualizada." : "Tarjeta guardada."} correctamente.</p>`;
                 await cargarTarjetas();
             } catch (error) {
-                messageBox.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+                messageBox.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
             } finally {
                 btn.disabled = false;
-                btn.textContent = "Guardar Tarjeta";
+                btn.textContent = editandoId ? "Actualizar tarjeta" : "Guardar tarjeta";
             }
         });
 

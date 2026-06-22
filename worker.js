@@ -1,7 +1,27 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 
 const MAX_IMAGEN_BASE64 = 2_000_000; // ~1.5 MB de imagen real, ya comprimida en el navegador
 const SESION_DURACION_MS = 1000 * 60 * 60 * 24 * 30; // 30 días
+
+const CATEGORIAS_DEFECTO = [
+  "Tecnología",
+  "Restaurantes y Alimentos",
+  "Construcción",
+  "Salud y Bienestar",
+  "Educación",
+  "Legal",
+  "Finanzas y Seguros",
+  "Belleza y Estética",
+  "Automotriz",
+  "Bienes Raíces",
+  "Eventos y Entretenimiento",
+  "Diseño y Marketing",
+  "Transporte y Logística",
+  "Turismo y Hotelería",
+  "Moda y Retail",
+  "Servicios Profesionales",
+  "Otros"
+];
 
 function jsonResponse(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -27,6 +47,14 @@ function leerImagen(valor, nombreCampo) {
     throw new Error(`La imagen de '${nombreCampo}' es demasiado grande. Usa una más liviana.`);
   }
   return valor;
+}
+
+function parseObjectId(id) {
+  try {
+    return new ObjectId(id);
+  } catch {
+    return null;
+  }
 }
 
 // --- Criptografía (Web Crypto, disponible nativamente en Workers) ---
@@ -158,6 +186,7 @@ async function withCollection(env, nombreColeccion, fn) {
 
 const withUsuarios = (env, fn) => withCollection(env, "usuarios", fn);
 const withTarjetas = (env, fn) => withCollection(env, "tarjetas", fn);
+const withCategorias = (env, fn) => withCollection(env, "categorias", fn);
 
 // --- Autenticación ---
 
@@ -299,6 +328,103 @@ async function handleGuardarApiKey(request, env) {
   }
 }
 
+// Edición del propio perfil: nombre, teléfono (usuario de login) y/o DPI
+// (contraseña). Siempre exige el DPI actual para confirmar el cambio. Si el
+// teléfono cambia, también migra el propietario de sus tarjetas guardadas.
+async function handleActualizarUsuario(request, env) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const { sessionSecret } = await obtenerConfig(env);
+  if (!sessionSecret) {
+    return jsonResponse({ error: "Falta configurar SESSION_SECRET en el servidor." }, 500);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
+  }
+
+  const dpiActual = soloDigitos(body.dpiActual);
+  if (!dpiActual) {
+    return jsonResponse({ error: "Debes ingresar tu DPI actual para confirmar los cambios." }, 400);
+  }
+
+  const nombreNuevo = texto(body.nombre);
+  const telefonoNuevo = soloDigitos(body.telefono);
+  const dpiNuevo = soloDigitos(body.dpiNuevo);
+
+  try {
+    const resultado = await withUsuarios(env, async (collection) => {
+      const usuario = await collection.findOne({ telefono: sesion.telefono });
+      if (!usuario) return { tipo: "no-encontrado" };
+
+      const hashActual = await hashConSalt(dpiActual, usuario.dpiSalt);
+      if (hashActual !== usuario.dpiHash) return { tipo: "dpi-incorrecto" };
+
+      const cambios = {};
+      if (nombreNuevo) cambios.nombre = nombreNuevo;
+
+      let telefonoAnterior = null;
+      if (telefonoNuevo && telefonoNuevo !== usuario.telefono) {
+        if (telefonoNuevo.length < 8) return { tipo: "telefono-invalido" };
+        const existente = await collection.findOne({ telefono: telefonoNuevo });
+        if (existente) return { tipo: "telefono-en-uso" };
+        telefonoAnterior = usuario.telefono;
+        cambios.telefono = telefonoNuevo;
+      }
+
+      if (dpiNuevo) {
+        if (dpiNuevo.length < 8) return { tipo: "dpi-invalido" };
+        const nuevoSalt = generarSalt();
+        cambios.dpiSalt = nuevoSalt;
+        cambios.dpiHash = await hashConSalt(dpiNuevo, nuevoSalt);
+      }
+
+      if (Object.keys(cambios).length > 0) {
+        await collection.updateOne({ telefono: sesion.telefono }, { $set: cambios });
+      }
+
+      return { tipo: "ok", usuario: { ...usuario, ...cambios }, telefonoAnterior };
+    });
+
+    if (resultado.tipo === "no-encontrado") return jsonResponse({ error: "No autenticado." }, 401);
+    if (resultado.tipo === "dpi-incorrecto") return jsonResponse({ error: "El DPI actual no es correcto." }, 401);
+    if (resultado.tipo === "telefono-invalido") return jsonResponse({ error: "El nuevo número de teléfono no es válido." }, 400);
+    if (resultado.tipo === "telefono-en-uso") return jsonResponse({ error: "Ese número de teléfono ya está en uso por otra cuenta." }, 409);
+    if (resultado.tipo === "dpi-invalido") return jsonResponse({ error: "El nuevo DPI no es válido." }, 400);
+
+    if (resultado.telefonoAnterior) {
+      await withTarjetas(env, (collection) =>
+        collection.updateMany(
+          { propietarioTelefono: resultado.telefonoAnterior },
+          { $set: { propietarioTelefono: resultado.usuario.telefono } }
+        )
+      );
+    }
+
+    const usuarioActualizado = resultado.usuario;
+    const token = await firmarSesion(
+      { telefono: usuarioActualizado.telefono, rol: usuarioActualizado.rol, exp: Date.now() + SESION_DURACION_MS },
+      sessionSecret
+    );
+    return jsonResponse(
+      {
+        telefono: usuarioActualizado.telefono,
+        nombre: usuarioActualizado.nombre,
+        rol: usuarioActualizado.rol,
+        tieneApiKey: Boolean(usuarioActualizado.openaiApiKey)
+      },
+      200,
+      { "Set-Cookie": cookieSesion(token) }
+    );
+  } catch (error) {
+    return jsonResponse({ error: "Error al actualizar tu cuenta.", message: error.message }, 500);
+  }
+}
+
 // --- Tarjetas (privadas por usuario) ---
 
 async function handleListTarjetas(request, env) {
@@ -315,6 +441,25 @@ async function handleListTarjetas(request, env) {
   }
 }
 
+function camposTarjeta(body) {
+  return {
+    nombre: texto(body.nombre),
+    empresa: texto(body.empresa),
+    cargo: texto(body.cargo),
+    telefono: texto(body.telefono),
+    email: texto(body.email),
+    sitioWeb: texto(body.sitioWeb),
+    notas: texto(body.notas),
+    facebook: texto(body.facebook),
+    instagram: texto(body.instagram),
+    linkedin: texto(body.linkedin),
+    tiktok: texto(body.tiktok),
+    twitter: texto(body.twitter),
+    categoria: texto(body.categoria),
+    esMiTarjeta: Boolean(body.esMiTarjeta)
+  };
+}
+
 async function handleCreateTarjeta(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
@@ -326,8 +471,8 @@ async function handleCreateTarjeta(request, env) {
     return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
   }
 
-  const nombre = texto(body.nombre);
-  if (!nombre) {
+  const campos = camposTarjeta(body);
+  if (!campos.nombre) {
     return jsonResponse({ error: "El campo 'nombre' es obligatorio." }, 400);
   }
 
@@ -340,33 +485,117 @@ async function handleCreateTarjeta(request, env) {
     return jsonResponse({ error: error.message }, 400);
   }
 
+  const ahora = new Date();
   const tarjeta = {
     propietarioTelefono: sesion.telefono,
-    nombre,
-    empresa: texto(body.empresa),
-    cargo: texto(body.cargo),
-    telefono: texto(body.telefono),
-    email: texto(body.email),
-    sitioWeb: texto(body.sitioWeb),
-    notas: texto(body.notas),
-    facebook: texto(body.facebook),
-    instagram: texto(body.instagram),
-    linkedin: texto(body.linkedin),
-    tiktok: texto(body.tiktok),
-    twitter: texto(body.twitter),
+    ...campos,
     imagenFrente,
     imagenReverso,
-    creadoEn: new Date()
+    creadoEn: ahora,
+    actualizadoEn: ahora
   };
 
   try {
     const insertedId = await withTarjetas(env, async (collection) => {
+      // Nota: no se hace deduplicación por número de teléfono — si ya existe
+      // una tarjeta (propia o de otro usuario) con ese contacto, simplemente
+      // se guarda una nueva, tal como se pidió.
+      if (tarjeta.esMiTarjeta) {
+        await collection.updateMany({ propietarioTelefono: sesion.telefono }, { $set: { esMiTarjeta: false } });
+      }
       const result = await collection.insertOne(tarjeta);
       return result.insertedId;
     });
     return jsonResponse({ ...tarjeta, _id: insertedId }, 201);
   } catch (error) {
     return jsonResponse({ error: "Error al guardar la tarjeta.", message: error.message }, 500);
+  }
+}
+
+async function handleUpdateTarjeta(request, env, id) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const objectId = parseObjectId(id);
+  if (!objectId) return jsonResponse({ error: "ID de tarjeta inválido." }, 400);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
+  }
+
+  const campos = camposTarjeta(body);
+  if (!campos.nombre) {
+    return jsonResponse({ error: "El campo 'nombre' es obligatorio." }, 400);
+  }
+
+  const cambios = { ...campos, actualizadoEn: new Date() };
+  try {
+    // Si no se manda una imagen nueva, se conserva la que ya estaba guardada.
+    if (body.imagenFrente) cambios.imagenFrente = leerImagen(body.imagenFrente, "imagen del frente");
+    if (body.imagenReverso) cambios.imagenReverso = leerImagen(body.imagenReverso, "imagen del reverso");
+  } catch (error) {
+    return jsonResponse({ error: error.message }, 400);
+  }
+
+  try {
+    const resultado = await withTarjetas(env, async (collection) => {
+      const existente = await collection.findOne({ _id: objectId });
+      if (!existente) return { tipo: "no-encontrada" };
+      if (existente.propietarioTelefono !== sesion.telefono) return { tipo: "prohibido" };
+
+      if (cambios.esMiTarjeta) {
+        await collection.updateMany(
+          { propietarioTelefono: sesion.telefono, _id: { $ne: objectId } },
+          { $set: { esMiTarjeta: false } }
+        );
+      }
+
+      await collection.updateOne({ _id: objectId }, { $set: cambios });
+      return { tipo: "ok", tarjeta: { ...existente, ...cambios } };
+    });
+
+    if (resultado.tipo === "no-encontrada") return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
+    if (resultado.tipo === "prohibido") return jsonResponse({ error: "No puedes editar una tarjeta que no es tuya." }, 403);
+    return jsonResponse(resultado.tarjeta);
+  } catch (error) {
+    return jsonResponse({ error: "Error al actualizar la tarjeta.", message: error.message }, 500);
+  }
+}
+
+// Directorio compartido: todas las tarjetas de todos los usuarios, sin
+// revelar quién las guardó. Pensado para buscar proveedores ya conocidos
+// por otros miembros del sistema.
+async function handleDirectorio(request, env) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  try {
+    const tarjetas = await withTarjetas(env, (collection) =>
+      collection.find({}, { projection: { propietarioTelefono: 0 } }).sort({ creadoEn: -1 }).toArray()
+    );
+    return jsonResponse(tarjetas);
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar el directorio.", message: error.message }, 500);
+  }
+}
+
+// Vista pública (sin login) de una tarjeta marcada como "mi tarjeta" por su
+// dueño, para poder compartirla por WhatsApp/redes con un enlace directo.
+async function handleTarjetaPublica(env, id) {
+  const objectId = parseObjectId(id);
+  if (!objectId) return jsonResponse({ error: "ID inválido." }, 400);
+
+  try {
+    const tarjeta = await withTarjetas(env, (collection) =>
+      collection.findOne({ _id: objectId, esMiTarjeta: true }, { projection: { propietarioTelefono: 0 } })
+    );
+    if (!tarjeta) return jsonResponse({ error: "Tarjeta no encontrada o no es pública." }, 404);
+    return jsonResponse(tarjeta);
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar la tarjeta.", message: error.message }, 500);
   }
 }
 
@@ -452,6 +681,69 @@ async function handleOcr(request, env) {
   }
 }
 
+// --- Categorías (gestionadas por el administrador) ---
+
+async function handleListCategorias(request, env) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  try {
+    const categorias = await withCategorias(env, async (collection) => {
+      const total = await collection.countDocuments();
+      if (total === 0) {
+        await collection.insertMany(CATEGORIAS_DEFECTO.map((nombre) => ({ nombre, creadoEn: new Date() })));
+      }
+      return collection.find({}).sort({ nombre: 1 }).toArray();
+    });
+    return jsonResponse(categorias);
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar categorías.", message: error.message }, 500);
+  }
+}
+
+async function handleCrearCategoria(request, env) {
+  const { error } = await requerirAdmin(request, env);
+  if (error) return error;
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
+  }
+
+  const nombre = texto(body.nombre);
+  if (!nombre) return jsonResponse({ error: "El nombre de la categoría es obligatorio." }, 400);
+
+  try {
+    const insertedId = await withCategorias(env, async (collection) => {
+      const existente = await collection.findOne({ nombre });
+      if (existente) throw new Error("Ya existe una categoría con ese nombre.");
+      const result = await collection.insertOne({ nombre, creadoEn: new Date() });
+      return result.insertedId;
+    });
+    return jsonResponse({ _id: insertedId, nombre }, 201);
+  } catch (error) {
+    return jsonResponse({ error: error.message }, 400);
+  }
+}
+
+async function handleEliminarCategoria(request, env, id) {
+  const { error } = await requerirAdmin(request, env);
+  if (error) return error;
+
+  const objectId = parseObjectId(id);
+  if (!objectId) return jsonResponse({ error: "ID inválido." }, 400);
+
+  try {
+    const resultado = await withCategorias(env, (collection) => collection.deleteOne({ _id: objectId }));
+    if (resultado.deletedCount === 0) return jsonResponse({ error: "Categoría no encontrada." }, 404);
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    return jsonResponse({ error: "Error al eliminar la categoría.", message: error.message }, 500);
+  }
+}
+
 // --- Administración ---
 
 async function requerirAdmin(request, env) {
@@ -504,6 +796,46 @@ async function handleCambiarRol(request, env, telefonoObjetivo) {
   }
 }
 
+// El admin puede corregir el nombre de cualquier usuario y/o resetearle el
+// DPI (soporte cuando alguien lo olvida) sin necesitar el DPI anterior.
+async function handleAdminEditarUsuario(request, env, telefonoObjetivo) {
+  const { error } = await requerirAdmin(request, env);
+  if (error) return error;
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
+  }
+
+  const nombreNuevo = texto(body.nombre);
+  const dpiNuevo = soloDigitos(body.dpiNuevo);
+
+  if (!nombreNuevo && !dpiNuevo) {
+    return jsonResponse({ error: "No hay cambios para aplicar." }, 400);
+  }
+
+  const cambios = {};
+  if (nombreNuevo) cambios.nombre = nombreNuevo;
+  if (dpiNuevo) {
+    if (dpiNuevo.length < 8) return jsonResponse({ error: "El nuevo DPI no es válido." }, 400);
+    const salt = generarSalt();
+    cambios.dpiSalt = salt;
+    cambios.dpiHash = await hashConSalt(dpiNuevo, salt);
+  }
+
+  try {
+    const resultado = await withUsuarios(env, (collection) =>
+      collection.updateOne({ telefono: telefonoObjetivo }, { $set: cambios })
+    );
+    if (resultado.matchedCount === 0) return jsonResponse({ error: "Usuario no encontrado." }, 404);
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    return jsonResponse({ error: "Error al actualizar el usuario.", message: error.message }, 500);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -514,14 +846,35 @@ export default {
     if (pathname === "/api/auth/login" && metodo === "POST") return handleLogin(request, env);
     if (pathname === "/api/auth/logout" && metodo === "POST") return handleLogout();
     if (pathname === "/api/auth/yo" && metodo === "GET") return handleYo(request, env);
+    if (pathname === "/api/usuario" && metodo === "PUT") return handleActualizarUsuario(request, env);
     if (pathname === "/api/usuario/openai-key" && metodo === "PUT") return handleGuardarApiKey(request, env);
+
     if (pathname === "/api/tarjetas" && metodo === "GET") return handleListTarjetas(request, env);
     if (pathname === "/api/tarjetas" && metodo === "POST") return handleCreateTarjeta(request, env);
+
+    const matchTarjetaId = pathname.match(/^\/api\/tarjetas\/([^/]+)$/);
+    if (matchTarjetaId && metodo === "PUT") return handleUpdateTarjeta(request, env, decodeURIComponent(matchTarjetaId[1]));
+
+    if (pathname === "/api/directorio" && metodo === "GET") return handleDirectorio(request, env);
+
+    const matchTarjetaPublica = pathname.match(/^\/api\/tarjeta-publica\/([^/]+)$/);
+    if (matchTarjetaPublica && metodo === "GET") return handleTarjetaPublica(env, decodeURIComponent(matchTarjetaPublica[1]));
+
     if (pathname === "/api/ocr" && metodo === "POST") return handleOcr(request, env);
+
+    if (pathname === "/api/categorias" && metodo === "GET") return handleListCategorias(request, env);
+    if (pathname === "/api/admin/categorias" && metodo === "POST") return handleCrearCategoria(request, env);
+
+    const matchCategoriaId = pathname.match(/^\/api\/admin\/categorias\/([^/]+)$/);
+    if (matchCategoriaId && metodo === "DELETE") return handleEliminarCategoria(request, env, decodeURIComponent(matchCategoriaId[1]));
+
     if (pathname === "/api/admin/usuarios" && metodo === "GET") return handleListUsuarios(request, env);
 
     const matchRol = pathname.match(/^\/api\/admin\/usuarios\/([^/]+)\/rol$/);
     if (matchRol && metodo === "PATCH") return handleCambiarRol(request, env, decodeURIComponent(matchRol[1]));
+
+    const matchAdminUsuario = pathname.match(/^\/api\/admin\/usuarios\/([^/]+)$/);
+    if (matchAdminUsuario && metodo === "PUT") return handleAdminEditarUsuario(request, env, decodeURIComponent(matchAdminUsuario[1]));
 
     return env.ASSETS.fetch(request);
   }

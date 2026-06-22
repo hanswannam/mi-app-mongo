@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarjeta de presentación</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --text: #18181b;
+            --text-muted: #71717a;
+            --border: #e4e4e7;
+            --accent: #34d399;
+            --accent-hover: #10b981;
+            --accent-ink: #09090b;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+        }
+
+        .imagenes {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .imagenes img {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .categoria {
+            display: inline-block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--accent-hover);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 3px 8px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            margin: 0 0 4px;
+        }
+
+        .meta {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .acciones {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .acciones a {
+            display: inline-flex;
+            align-items: center;
+            font-size: 13px;
+            text-decoration: none;
+            color: var(--text);
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+        }
+
+        .notas {
+            font-size: 13px;
+            color: var(--text-muted);
+            white-space: pre-wrap;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+
+        .footer {
+            margin-top: 28px;
+            text-align: center;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+        }
+
+        .placeholder-text {
+            color: var(--text-muted);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="card" id="contenido">
+        <p class="placeholder-text">Cargando tarjeta...</p>
+    </div>
+
+    <script>
+        function escapeHtml(value) {
+            return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+            }[c]));
+        }
+
+        function whatsappUrl(telefono) {
+            const digitos = (telefono || "").replace(/\D/g, "");
+            if (!digitos) return null;
+            const conCodigo = digitos.length <= 8 ? `502${digitos}` : digitos;
+            return `https://wa.me/${conCodigo}`;
+        }
+
+        async function cargar() {
+            const contenedor = document.getElementById("contenido");
+            const id = new URLSearchParams(location.search).get("id");
+
+            if (!id) {
+                contenedor.innerHTML = '<p class="placeholder-text">Falta el identificador de la tarjeta.</p>';
+                return;
+            }
+
+            try {
+                const r = await fetch(`/api/tarjeta-publica/${encodeURIComponent(id)}`);
+                if (!r.ok) {
+                    contenedor.innerHTML = '<p class="placeholder-text">Esta tarjeta no existe o ya no es pública.</p>';
+                    return;
+                }
+                const t = await r.json();
+
+                const imagenes = [t.imagenFrente, t.imagenReverso].filter(Boolean);
+                const imagenesHtml = imagenes.length
+                    ? `<div class="imagenes">${imagenes.map((src) => `<img src="${src}" alt="">`).join("")}</div>`
+                    : "";
+
+                const acciones = [];
+                const wa = whatsappUrl(t.telefono);
+                if (wa) acciones.push(`<a href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`);
+                if (t.telefono) acciones.push(`<a href="tel:${escapeHtml(t.telefono)}">Llamar</a>`);
+                if (t.email) acciones.push(`<a href="mailto:${escapeHtml(t.email)}">Email</a>`);
+                if (t.sitioWeb) acciones.push(`<a href="${escapeHtml(t.sitioWeb)}" target="_blank" rel="noopener">Sitio web</a>`);
+
+                const meta = [t.cargo, t.empresa].filter(Boolean).map(escapeHtml).join(" · ");
+
+                contenedor.innerHTML = `
+                    ${imagenesHtml}
+                    ${t.categoria ? `<span class="categoria">${escapeHtml(t.categoria)}</span>` : ""}
+                    <h1>${escapeHtml(t.nombre)}</h1>
+                    ${meta ? `<p class="meta">${meta}</p>` : ""}
+                    ${acciones.length ? `<div class="acciones">${acciones.join("")}</div>` : ""}
+                    ${t.notas ? `<p class="notas">${escapeHtml(t.notas)}</p>` : ""}
+                    <p class="footer">Billetera Virtual</p>
+                `;
+            } catch (error) {
+                contenedor.innerHTML = `<p class="placeholder-text">Error al cargar la tarjeta: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        cargar();
+    </script>
+</body>
+</html>

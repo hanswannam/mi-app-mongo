@@ -5,102 +5,199 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Billetera Virtual - Panel Admin</title>
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --bg: #f9fafb;
-            --card-bg: #ffffff;
-            --text-main: #111827;
-            --text-muted: #4b5563;
-            --border: #e5e7eb;
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --text: #18181b;
+            --text-muted: #71717a;
+            --border: #e4e4e7;
+            --accent: #34d399;
+            --accent-hover: #10b981;
+            --accent-ink: #09090b;
+            --danger: #e11d48;
+            --danger-bg: #fff1f2;
         }
+
+        * { box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background-color: var(--bg);
-            color: var(--text-main);
+            color: var(--text);
             margin: 0;
-            padding: 40px 20px;
-            box-sizing: border-box;
+            padding: 40px 24px 80px;
         }
 
-        .container {
-            max-width: 900px;
+        .shell {
+            max-width: 920px;
             margin: 0 auto;
         }
 
-        .panel {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        a.volver {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
         }
 
         h1 {
-            font-size: 22px;
-            margin-top: 0;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            margin: 16px 0 4px;
         }
 
-        a.volver {
-            color: var(--primary);
-            text-decoration: none;
+        h2 {
             font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin: 0 0 16px;
+        }
+
+        section {
+            margin-top: 48px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            margin-top: 16px;
         }
 
         th, td {
             text-align: left;
-            padding: 10px 12px;
+            padding: 10px 8px;
             border-bottom: 1px solid var(--border);
         }
 
         th {
             color: var(--text-muted);
             font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .btn {
-            background-color: var(--primary);
-            color: white;
+            background-color: var(--accent);
+            color: var(--accent-ink);
             border: none;
-            padding: 6px 12px;
+            padding: 7px 12px;
             font-size: 12px;
             font-weight: 600;
-            border-radius: 6px;
+            font-family: inherit;
+            border-radius: 5px;
             cursor: pointer;
         }
 
         .btn:hover {
-            background-color: var(--primary-hover);
+            background-color: var(--accent-hover);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--text);
+        }
+
+        .btn-danger {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            color: white;
         }
 
         .btn:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
+        .acciones-fila {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
         .placeholder-text {
-            color: #9ca3af;
+            color: var(--text-muted);
             font-style: italic;
+        }
+
+        .form-categoria {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .form-categoria input {
+            flex: 1;
+            font-family: inherit;
+            font-size: 14px;
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .lista-categorias {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pill-categoria {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 6px 6px 12px;
+        }
+
+        .pill-categoria button {
+            border: none;
+            background: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            padding: 0 4px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="shell">
         <p><a class="volver" href="/">← Volver a la app</a></p>
-        <div class="panel">
-            <h1>Panel de administrador</h1>
-            <p class="placeholder-text" style="margin-top: 0;">Usuarios registrados en Billetera Virtual.</p>
-            <div id="contenido"><p class="placeholder-text">Cargando...</p></div>
-        </div>
+        <h1>Panel de administrador</h1>
+        <p class="placeholder-text" style="margin: 0;">Usuarios y categorías de Billetera Virtual.</p>
+
+        <section>
+            <h2>Usuarios registrados</h2>
+            <div id="usuarios-contenido"><p class="placeholder-text">Cargando...</p></div>
+        </section>
+
+        <section>
+            <h2>Categorías de empresas</h2>
+            <form class="form-categoria" id="form-categoria">
+                <input type="text" id="input-categoria" placeholder="Nueva categoría...">
+                <button type="submit" class="btn">Agregar</button>
+            </form>
+            <div id="categorias-contenido"><p class="placeholder-text">Cargando...</p></div>
+        </section>
     </div>
 
     <script>
@@ -110,8 +207,10 @@
             }[c]));
         }
 
-        function renderTabla(usuarios) {
-            const contenido = document.getElementById("contenido");
+        // --- Usuarios ---
+
+        function renderUsuarios(usuarios) {
+            const contenido = document.getElementById("usuarios-contenido");
 
             if (usuarios.length === 0) {
                 contenido.innerHTML = '<p class="placeholder-text">No hay usuarios registrados.</p>';
@@ -131,9 +230,13 @@
                                 <td>${escapeHtml(u.rol)}</td>
                                 <td>${new Date(u.creadoEn).toLocaleDateString("es-GT")}</td>
                                 <td>
-                                    <button class="btn" data-telefono="${escapeHtml(u.telefono)}" data-rol="${escapeHtml(u.rol)}">
-                                        ${u.rol === "admin" ? "Quitar admin" : "Hacer admin"}
-                                    </button>
+                                    <div class="acciones-fila">
+                                        <button class="btn btn-outline" data-editar-nombre="${escapeHtml(u.telefono)}">Editar nombre</button>
+                                        <button class="btn btn-outline" data-reset-dpi="${escapeHtml(u.telefono)}">Resetear DPI</button>
+                                        <button class="btn" data-cambiar-rol="${escapeHtml(u.telefono)}" data-rol="${escapeHtml(u.rol)}">
+                                            ${u.rol === "admin" ? "Quitar admin" : "Hacer admin"}
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         `).join("")}
@@ -141,9 +244,9 @@
                 </table>
             `;
 
-            contenido.querySelectorAll("button[data-telefono]").forEach((btn) => {
+            contenido.querySelectorAll("button[data-cambiar-rol]").forEach((btn) => {
                 btn.addEventListener("click", async () => {
-                    const telefono = btn.dataset.telefono;
+                    const telefono = btn.dataset.cambiarRol;
                     const nuevoRol = btn.dataset.rol === "admin" ? "usuario" : "admin";
                     btn.disabled = true;
                     try {
@@ -154,17 +257,57 @@
                         });
                         const data = await r.json();
                         if (!r.ok) throw new Error(data.error || "No se pudo actualizar el rol.");
-                        await cargar();
+                        await cargarUsuarios();
                     } catch (error) {
                         alert(error.message);
                         btn.disabled = false;
                     }
                 });
             });
+
+            contenido.querySelectorAll("button[data-editar-nombre]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    const telefono = btn.dataset.editarNombre;
+                    const nombreNuevo = prompt("Nuevo nombre para este usuario:");
+                    if (!nombreNuevo) return;
+                    try {
+                        const r = await fetch(`/api/admin/usuarios/${encodeURIComponent(telefono)}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ nombre: nombreNuevo })
+                        });
+                        const data = await r.json();
+                        if (!r.ok) throw new Error(data.error || "No se pudo actualizar el nombre.");
+                        await cargarUsuarios();
+                    } catch (error) {
+                        alert(error.message);
+                    }
+                });
+            });
+
+            contenido.querySelectorAll("button[data-reset-dpi]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    const telefono = btn.dataset.resetDpi;
+                    const dpiNuevo = prompt("Nuevo DPI (contraseña) para este usuario:");
+                    if (!dpiNuevo) return;
+                    try {
+                        const r = await fetch(`/api/admin/usuarios/${encodeURIComponent(telefono)}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ dpiNuevo })
+                        });
+                        const data = await r.json();
+                        if (!r.ok) throw new Error(data.error || "No se pudo actualizar el DPI.");
+                        alert("DPI actualizado.");
+                    } catch (error) {
+                        alert(error.message);
+                    }
+                });
+            });
         }
 
-        async function cargar() {
-            const contenido = document.getElementById("contenido");
+        async function cargarUsuarios() {
+            const contenido = document.getElementById("usuarios-contenido");
             try {
                 const r = await fetch("/api/admin/usuarios");
                 if (r.status === 401) {
@@ -176,13 +319,81 @@
                     return;
                 }
                 if (!r.ok) throw new Error(`Error ${r.status}`);
-                renderTabla(await r.json());
+                renderUsuarios(await r.json());
             } catch (error) {
                 contenido.innerHTML = `<p class="placeholder-text">Error al cargar usuarios: ${escapeHtml(error.message)}</p>`;
             }
         }
 
-        cargar();
+        // --- Categorías ---
+
+        function renderCategorias(categorias) {
+            const contenido = document.getElementById("categorias-contenido");
+
+            if (categorias.length === 0) {
+                contenido.innerHTML = '<p class="placeholder-text">No hay categorías todavía.</p>';
+                return;
+            }
+
+            contenido.innerHTML = `
+                <div class="lista-categorias">
+                    ${categorias.map((c) => `
+                        <span class="pill-categoria">
+                            ${escapeHtml(c.nombre)}
+                            <button type="button" data-eliminar-categoria="${c._id}" title="Eliminar">×</button>
+                        </span>
+                    `).join("")}
+                </div>
+            `;
+
+            contenido.querySelectorAll("button[data-eliminar-categoria]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("¿Eliminar esta categoría?")) return;
+                    try {
+                        const r = await fetch(`/api/admin/categorias/${btn.dataset.eliminarCategoria}`, { method: "DELETE" });
+                        const data = await r.json();
+                        if (!r.ok) throw new Error(data.error || "No se pudo eliminar.");
+                        await cargarCategorias();
+                    } catch (error) {
+                        alert(error.message);
+                    }
+                });
+            });
+        }
+
+        async function cargarCategorias() {
+            const contenido = document.getElementById("categorias-contenido");
+            try {
+                const r = await fetch("/api/categorias");
+                if (!r.ok) throw new Error(`Error ${r.status}`);
+                renderCategorias(await r.json());
+            } catch (error) {
+                contenido.innerHTML = `<p class="placeholder-text">Error al cargar categorías: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        document.getElementById("form-categoria").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const input = document.getElementById("input-categoria");
+            const nombre = input.value.trim();
+            if (!nombre) return;
+            try {
+                const r = await fetch("/api/admin/categorias", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nombre })
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || "No se pudo agregar la categoría.");
+                input.value = "";
+                await cargarCategorias();
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        cargarUsuarios();
+        cargarCategorias();
     </script>
 </body>
 </html>
