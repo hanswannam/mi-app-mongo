@@ -266,6 +266,12 @@ label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .profile-section h3 { font-size: 14px; font-weight: 700; margin: 0 0 14px; }
 .dark-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
 
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center;
+  justify-content: center; z-index: 9999; padding: 20px;
+}
+.modal-box { background: var(--surface); border-radius: 18px; padding: 24px; max-width: 360px; width: 100%; box-shadow: var(--shadow-lg); }
+
 @media (max-width: 420px) {
   .action-grid { grid-template-columns: repeat(3, 1fr); }
   .summary-card .num { font-size: 24px; }
@@ -529,6 +535,18 @@ label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
     <button class="nav-btn" data-pantalla="mitarjeta"><span class="glyph">💳</span>Mi Tarjeta</button>
     <button class="nav-btn" data-pantalla="perfil"><span class="glyph">⚙️</span>Perfil</button>
   </nav>
+</div>
+
+<div id="modal-confirmar-dpi" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 style="margin:0 0 6px;">Confirma tu identidad</h3>
+    <p class="placeholder-text" id="modal-dpi-texto" style="margin:0 0 14px;">Ingresa tu DPI actual para confirmar.</p>
+    <input type="password" id="modal-dpi-input" placeholder="Tu DPI">
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button type="button" class="btn btn-outline" id="modal-dpi-cancelar" style="flex:1;">Cancelar</button>
+      <button type="button" class="btn" id="modal-dpi-confirmar" style="flex:1;">Confirmar</button>
+    </div>
+  </div>
 </div>
 
 <script src="/app.js"></script>

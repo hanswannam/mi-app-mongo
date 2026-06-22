@@ -466,6 +466,17 @@ async function handleListTarjetas(request, env) {
 
 const ETIQUETAS_VALIDAS = ["cliente", "proveedor", "aliado"];
 
+// "50251136189", "+50251136189" y "51136189" deben tratarse como el mismo
+// número: se normaliza a solo dígitos y se le quita el código de país
+// (502) cuando está presente, dejando el número local de 8 dígitos.
+function normalizarTelefono(valor) {
+  let digitos = (valor || "").replace(/\D/g, "");
+  if (digitos.length > 8 && digitos.startsWith("502")) {
+    digitos = digitos.slice(3);
+  }
+  return digitos;
+}
+
 function camposTarjeta(body) {
   const etiqueta = texto(body.etiqueta).toLowerCase();
   return {
@@ -473,6 +484,7 @@ function camposTarjeta(body) {
     empresa: texto(body.empresa),
     cargo: texto(body.cargo),
     telefono: texto(body.telefono),
+    telefonoNormalizado: normalizarTelefono(body.telefono),
     email: texto(body.email),
     sitioWeb: normalizarUrl(body.sitioWeb),
     notas: texto(body.notas),
@@ -486,6 +498,17 @@ function camposTarjeta(body) {
     favorito: Boolean(body.favorito),
     esMiTarjeta: Boolean(body.esMiTarjeta)
   };
+}
+
+// Busca si el propio usuario ya tiene guardada una tarjeta con el mismo
+// teléfono (sin importar el formato). Solo dentro de su colección — un
+// mismo contacto real sí puede aparecer en las colecciones de varios
+// usuarios distintos (eso es justamente lo que permite el directorio).
+async function buscarTarjetaDuplicada(env, propietarioTelefono, telefonoNormalizado, excluirId) {
+  if (!telefonoNormalizado) return null;
+  const filtro = { propietarioTelefono, telefonoNormalizado };
+  if (excluirId) filtro._id = { $ne: excluirId };
+  return withTarjetas(env, (collection) => collection.findOne(filtro));
 }
 
 async function handleCreateTarjeta(request, env) {
@@ -502,6 +525,14 @@ async function handleCreateTarjeta(request, env) {
   const campos = camposTarjeta(body);
   if (!campos.nombre) {
     return jsonResponse({ error: "El campo 'nombre' es obligatorio." }, 400);
+  }
+
+  const duplicada = await buscarTarjetaDuplicada(env, sesion.telefono, campos.telefonoNormalizado);
+  if (duplicada) {
+    return jsonResponse({
+      error: "Ya existe una tarjeta registrada con este número.",
+      duplicado: { _id: duplicada._id, nombre: duplicada.nombre, empresa: duplicada.empresa }
+    }, 409);
   }
 
   let imagenFrente;
@@ -566,6 +597,14 @@ async function handleUpdateTarjeta(request, env, id) {
   const campos = camposTarjeta(body);
   if (!campos.nombre) {
     return jsonResponse({ error: "El campo 'nombre' es obligatorio." }, 400);
+  }
+
+  const duplicada = await buscarTarjetaDuplicada(env, sesion.telefono, campos.telefonoNormalizado, objectId);
+  if (duplicada) {
+    return jsonResponse({
+      error: "Ya existe otra tarjeta tuya registrada con este número.",
+      duplicado: { _id: duplicada._id, nombre: duplicada.nombre, empresa: duplicada.empresa }
+    }, 409);
   }
 
   const cambios = { ...campos, actualizadoEn: new Date() };

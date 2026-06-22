@@ -722,7 +722,7 @@ function iniciarEdicion(c) {
   mostrarPantalla("formulario");
 }
 
-document.getElementById("btn-guardar-contacto").addEventListener("click", async () => {
+async function guardarContacto(idForzado) {
   const form = document.getElementById("form-contacto");
   if (!form.reportValidity()) return;
   const btn = document.getElementById("btn-guardar-contacto");
@@ -740,13 +740,20 @@ document.getElementById("btn-guardar-contacto").addEventListener("click", async 
     imagenFrente: capturas.frente, imagenReverso: capturas.reverso, avatarMini: avatarMiniBase64
   };
 
+  const idDestino = idForzado || editandoId;
   btn.disabled = true; btn.textContent = "Guardando...";
   try {
-    const url = editandoId ? `/api/tarjetas/${editandoId}` : "/api/tarjetas";
-    const r = await fetch(url, { method: editandoId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) });
+    const url = idDestino ? `/api/tarjetas/${idDestino}` : "/api/tarjetas";
+    const r = await fetch(url, { method: idDestino ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) });
     if (r.status === 401) { mostrarAuth(); return; }
     const resultado = await r.json();
+
+    if (r.status === 409 && resultado.duplicado) {
+      mostrarAvisoDuplicado(resultado.error, resultado.duplicado, datos);
+      return;
+    }
     if (!r.ok) throw new Error(resultado.error || `Error ${r.status}`);
+
     await cargarContactos();
     mostrarPantalla("contactos");
   } catch (error) {
@@ -754,7 +761,26 @@ document.getElementById("btn-guardar-contacto").addEventListener("click", async 
   } finally {
     btn.disabled = false; btn.textContent = "Guardar";
   }
-});
+}
+
+function mostrarAvisoDuplicado(mensaje, duplicado) {
+  const msg = document.getElementById("form-message");
+  msg.innerHTML = `
+    <div class="message error">
+      <p style="margin:0 0 10px;">${escapeHtml(mensaje)} (<strong>${escapeHtml(duplicado.nombre)}</strong>${duplicado.empresa ? " · " + escapeHtml(duplicado.empresa) : ""})</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm" id="dup-ver">Ver tarjeta existente</button>
+        <button type="button" class="btn btn-outline btn-sm" id="dup-actualizar">Actualizar información</button>
+        <button type="button" class="btn-ghost" id="dup-cancelar">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("dup-ver").addEventListener("click", () => abrirDetalle(duplicado._id, false));
+  document.getElementById("dup-actualizar").addEventListener("click", () => guardarContacto(duplicado._id));
+  document.getElementById("dup-cancelar").addEventListener("click", () => { msg.innerHTML = ""; });
+}
+
+document.getElementById("btn-guardar-contacto").addEventListener("click", () => guardarContacto());
 
 // ---------- Mi Tarjeta ----------
 function miTarjetaActual() {
@@ -880,20 +906,74 @@ async function cargarEstadisticas(id) {
 }
 
 // ---------- Perfil ----------
+
+// Recorta al cuadrado central de la imagen (la foto de perfil siempre se ve
+// redonda/cuadrada) antes de comprimirla, así no queda estirada ni deformada
+// sin importar la proporción de la foto original.
+function recortarYComprimirCuadrado(file, lado = 400, calidad = 0.8) {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    lector.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("El archivo no es una imagen válida."));
+      img.onload = () => {
+        const tamanoMenor = Math.min(img.naturalWidth, img.naturalHeight);
+        const offsetX = (img.naturalWidth - tamanoMenor) / 2;
+        const offsetY = (img.naturalHeight - tamanoMenor) / 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = lado;
+        canvas.height = lado;
+        canvas.getContext("2d").drawImage(img, offsetX, offsetY, tamanoMenor, tamanoMenor, 0, 0, lado, lado);
+        resolve(canvas.toDataURL("image/jpeg", calidad));
+      };
+      img.src = lector.result;
+    };
+    lector.readAsDataURL(file);
+  });
+}
+
+// Reemplaza window.prompt(): en Chrome/Android, un prompt() llamado después
+// de un await (aquí, después de comprimir la imagen) puede bloquearse en
+// silencio si ya pasó el breve margen de "interacción reciente" del toque
+// original — eso era lo que hacía que "Cambiar foto" no hiciera nada.
+function pedirConfirmacionDpi(mensaje) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("modal-confirmar-dpi");
+    const input = document.getElementById("modal-dpi-input");
+    document.getElementById("modal-dpi-texto").textContent = mensaje || "Ingresa tu DPI actual para confirmar.";
+    input.value = "";
+    overlay.style.display = "flex";
+    input.focus();
+
+    const btnConfirmar = document.getElementById("modal-dpi-confirmar");
+    const btnCancelar = document.getElementById("modal-dpi-cancelar");
+    function limpiar() {
+      overlay.style.display = "none";
+      btnConfirmar.removeEventListener("click", onConfirmar);
+      btnCancelar.removeEventListener("click", onCancelar);
+    }
+    function onConfirmar() { const v = input.value.trim(); limpiar(); resolve(v || null); }
+    function onCancelar() { limpiar(); resolve(null); }
+    btnConfirmar.addEventListener("click", onConfirmar);
+    btnCancelar.addEventListener("click", onCancelar);
+  });
+}
+
 document.getElementById("btn-cambiar-foto").addEventListener("click", () => document.getElementById("input-foto-perfil").click());
 document.getElementById("input-foto-perfil").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   try {
-    const base64 = await comprimirImagen(file, 400, 0.8);
-    const dpiActual = prompt("Ingresa tu DPI actual para confirmar el cambio de foto:");
+    const base64 = await recortarYComprimirCuadrado(file);
+    const dpiActual = await pedirConfirmacionDpi("Ingresa tu DPI actual para guardar la nueva foto.");
     if (!dpiActual) return;
-    const r = await fetch("/api/usuario", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fotoPerfil: base64, dpiActual }) });
+    const r = await fetchConLimite("/api/usuario", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fotoPerfil: base64, dpiActual }) });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "No se pudo actualizar la foto.");
     usuarioActual = data;
     actualizarAvatarPerfil();
-  } catch (error) { alert(error.message); }
+  } catch (error) { alert(mensajeDeError(error)); }
   e.target.value = "";
 });
 
