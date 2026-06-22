@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Billetera Virtual - Visor JSON</title>
+    <title>Billetera Virtual - Tarjetas de Presentación</title>
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -20,9 +20,9 @@
             --card-bg: #ffffff;
             --text-main: #111827;
             --text-muted: #4b5563;
-            --code-bg: #1e1e2e;
-            --code-text: #cdd6f4;
             --border: #e5e7eb;
+            --error: #b91c1c;
+            --error-bg: #fef2f2;
         }
 
         body {
@@ -31,43 +31,88 @@
             color: var(--text-main);
             margin: 0;
             padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             box-sizing: border-box;
         }
 
         .container {
-            max-width: 700px;
+            max-width: 720px;
             width: 100%;
+            margin: 0 auto;
+        }
+
+        .panel {
             background-color: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 32px;
+            padding: 28px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
         }
 
         h1 {
             font-size: 24px;
             font-weight: 700;
             margin-top: 0;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             color: var(--text-main);
-            text-align: center;
         }
 
-        p {
+        p.subtitle {
             color: var(--text-muted);
             font-size: 14px;
+            margin-top: 0;
             margin-bottom: 24px;
-            text-align: center;
         }
 
-        .btn-container {
+        h2 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .field {
             display: flex;
-            justify-content: center;
-            margin-bottom: 24px;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input, textarea {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background-color: var(--bg);
+            color: var(--text-main);
+            box-sizing: border-box;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
         }
 
         .btn {
@@ -80,7 +125,6 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.2s ease, transform 0.1s ease;
-            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
         }
 
         .btn:hover {
@@ -91,68 +135,261 @@
             transform: scale(0.98);
         }
 
-        /* Div contenedor del resultado JSON */
-        #result-container {
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background-color: var(--code-bg);
-            color: var(--code-text);
-            padding: 20px;
-            min-height: 80px;
-            font-family: "Fira Code", Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: #eef2ff;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .search-input {
+            flex: 1;
+        }
+
+        .form-message {
             font-size: 13px;
-            line-height: 1.5;
-            overflow-x: auto;
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+        }
+
+        .form-message.error {
+            color: var(--error);
+            background-color: var(--error-bg);
+        }
+
+        .form-message.success {
+            color: #166534;
+            background-color: #f0fdf4;
+        }
+
+        .tarjetas-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tarjeta-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .tarjeta-nombre {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0 0 2px;
+        }
+
+        .tarjeta-meta {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0 0 10px;
+        }
+
+        .tarjeta-contacto {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .tarjeta-contacto a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .tarjeta-notas {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
             white-space: pre-wrap;
-            word-break: break-all;
-            transition: all 0.3s ease;
         }
 
         .placeholder-text {
-            color: #6c7086;
+            color: #9ca3af;
             text-align: center;
             font-style: italic;
-            margin: 0;
-        }
-
-        .error-text {
-            color: #f38ba8;
-            margin: 0;
+            margin: 12px 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Billetera Virtual</h1>
-        <p>Presiona el botón para consultar la lista de usuarios desde la API.</p>
-        
-        <div class="btn-container">
-            <button id="btn-cargar" class="btn">Cargar Usuarios</button>
+        <div class="panel">
+            <h1>Billetera Virtual</h1>
+            <p class="subtitle">Guarda y consulta tus tarjetas de presentación.</p>
+
+            <h2>Agregar tarjeta</h2>
+            <div id="form-message"></div>
+            <form id="form-tarjeta">
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="nombre">Nombre *</label>
+                        <input id="nombre" name="nombre" type="text" required>
+                    </div>
+                    <div class="field">
+                        <label for="empresa">Empresa</label>
+                        <input id="empresa" name="empresa" type="text">
+                    </div>
+                    <div class="field">
+                        <label for="cargo">Cargo</label>
+                        <input id="cargo" name="cargo" type="text">
+                    </div>
+                    <div class="field">
+                        <label for="telefono">Teléfono</label>
+                        <input id="telefono" name="telefono" type="tel">
+                    </div>
+                    <div class="field">
+                        <label for="email">Email</label>
+                        <input id="email" name="email" type="email">
+                    </div>
+                    <div class="field">
+                        <label for="sitioWeb">Sitio web</label>
+                        <input id="sitioWeb" name="sitioWeb" type="text">
+                    </div>
+                    <div class="field full">
+                        <label for="notas">Notas</label>
+                        <textarea id="notas" name="notas"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn" id="btn-guardar">Guardar Tarjeta</button>
+            </form>
         </div>
 
-        <div id="result-container">
-            <p class="placeholder-text">Los datos de los usuarios se mostrarán aquí en formato JSON.</p>
+        <div class="panel">
+            <div class="list-header">
+                <h2 style="margin-bottom: 0;">Tarjetas guardadas</h2>
+                <button type="button" class="btn btn-secondary" id="btn-actualizar">Actualizar</button>
+            </div>
+            <input class="search-input" id="buscador" type="text" placeholder="Buscar por nombre o empresa...">
+            <div id="tarjetas-container" style="margin-top: 16px;">
+                <p class="placeholder-text">Cargando tarjetas...</p>
+            </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('btn-cargar').addEventListener('click', async () => {
-            const container = document.getElementById('result-container');
-            container.innerHTML = '<p class="placeholder-text">Cargando...</p>';
-            
+        let tarjetas = [];
+
+        function escapeHtml(value) {
+            return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+            }[c]));
+        }
+
+        function renderTarjetas(filtro) {
+            const container = document.getElementById("tarjetas-container");
+            const filtroLower = filtro.trim().toLowerCase();
+
+            const visibles = tarjetas.filter((t) => {
+                if (!filtroLower) return true;
+                return (t.nombre || "").toLowerCase().includes(filtroLower) ||
+                       (t.empresa || "").toLowerCase().includes(filtroLower);
+            });
+
+            if (visibles.length === 0) {
+                container.innerHTML = '<p class="placeholder-text">No hay tarjetas para mostrar.</p>';
+                return;
+            }
+
+            container.innerHTML = visibles.map((t) => {
+                const metaParts = [t.cargo, t.empresa].filter(Boolean).map(escapeHtml);
+                const contactos = [];
+                if (t.telefono) contactos.push(`<a href="tel:${escapeHtml(t.telefono)}">${escapeHtml(t.telefono)}</a>`);
+                if (t.email) contactos.push(`<a href="mailto:${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>`);
+                if (t.sitioWeb) contactos.push(`<a href="${escapeHtml(t.sitioWeb)}" target="_blank" rel="noopener">${escapeHtml(t.sitioWeb)}</a>`);
+
+                return `
+                    <div class="tarjeta-card">
+                        <p class="tarjeta-nombre">${escapeHtml(t.nombre)}</p>
+                        ${metaParts.length ? `<p class="tarjeta-meta">${metaParts.join(" · ")}</p>` : ""}
+                        ${contactos.length ? `<div class="tarjeta-contacto">${contactos.join("")}</div>` : ""}
+                        ${t.notas ? `<p class="tarjeta-notas">${escapeHtml(t.notas)}</p>` : ""}
+                    </div>
+                `;
+            }).join("");
+        }
+
+        async function cargarTarjetas() {
+            const container = document.getElementById("tarjetas-container");
+            container.innerHTML = '<p class="placeholder-text">Cargando tarjetas...</p>';
             try {
-                const response = await fetch('/api/leer');
+                const response = await fetch("/api/tarjetas");
                 if (!response.ok) {
                     throw new Error(`Error en el servidor: ${response.status} ${response.statusText}`);
                 }
-                const data = await response.json();
-                
-                // Mostrar el resultado JSON formateado dentro del div
-                container.textContent = JSON.stringify(data, null, 4);
+                tarjetas = await response.json();
+                renderTarjetas(document.getElementById("buscador").value);
             } catch (error) {
-                container.innerHTML = `<p class="error-text">Ocurrió un error al cargar los usuarios:<br>${error.message}</p>`;
+                container.innerHTML = `<p class="placeholder-text">Ocurrió un error al cargar las tarjetas: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        document.getElementById("btn-actualizar").addEventListener("click", cargarTarjetas);
+        document.getElementById("buscador").addEventListener("input", (e) => renderTarjetas(e.target.value));
+
+        document.getElementById("form-tarjeta").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const btn = document.getElementById("btn-guardar");
+            const messageBox = document.getElementById("form-message");
+            messageBox.innerHTML = "";
+
+            const datos = {
+                nombre: form.nombre.value,
+                empresa: form.empresa.value,
+                cargo: form.cargo.value,
+                telefono: form.telefono.value,
+                email: form.email.value,
+                sitioWeb: form.sitioWeb.value,
+                notas: form.notas.value
+            };
+
+            btn.disabled = true;
+            btn.textContent = "Guardando...";
+
+            try {
+                const response = await fetch("/api/tarjetas", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(datos)
+                });
+                const resultado = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(resultado.error || `Error en el servidor: ${response.status}`);
+                }
+
+                form.reset();
+                messageBox.innerHTML = '<p class="form-message success">Tarjeta guardada correctamente.</p>';
+                await cargarTarjetas();
+            } catch (error) {
+                messageBox.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Guardar Tarjeta";
             }
         });
+
+        cargarTarjetas();
 
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

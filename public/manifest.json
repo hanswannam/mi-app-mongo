@@ -1,7 +1,7 @@
 {
   "name": "Billetera Virtual",
   "short_name": "Billetera",
-  "description": "Aplicación web de billetera virtual",
+  "description": "Guarda y consulta tus tarjetas de presentación",
   "id": "/",
   "start_url": "/",
   "scope": "/",
