@@ -121,9 +121,26 @@ document.getElementById("form-registro").addEventListener("submit", async (e) =>
   } catch (error) { msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`; }
 });
 
+function reiniciarEstadoApp() {
+  // Si quedaba un filtro/búsqueda activo de la sesión anterior, al volver a
+  // entrar parecía que "no había tarjetas" porque seguían filtradas.
+  contactos = [];
+  directorio = [];
+  vistaContactos = "mis";
+  filtroActivo = { inicio: "todos", contactos: "todos" };
+  document.getElementById("buscador-inicio").value = "";
+  document.getElementById("buscador-contactos").value = "";
+  document.getElementById("filtro-categoria-directorio").value = "";
+  document.querySelectorAll('.chip-row[data-grupo="inicio"] .chip').forEach((c) => c.classList.toggle("active", c.dataset.filtro === "todos"));
+  document.querySelectorAll('.chip-row[data-grupo="contactos"] .chip').forEach((c) => c.classList.toggle("active", c.dataset.filtro === "todos"));
+  document.querySelectorAll('[data-vista-contactos]').forEach((c) => c.classList.toggle("active", c.dataset.vistaContactos === "mis"));
+}
+
 document.getElementById("btn-logout").addEventListener("click", async () => {
   await fetch("/api/auth/logout", { method: "POST" });
-  usuarioActual = null; contactos = []; mostrarAuth();
+  usuarioActual = null;
+  reiniciarEstadoApp();
+  mostrarAuth();
 });
 
 // ---------- Navegación inferior ----------
@@ -160,22 +177,26 @@ async function cargarCategorias() {
 // ---------- Carga de contactos ----------
 async function cargarContactos() {
   try {
-    const r = await fetch("/api/tarjetas");
+    const r = await fetch("/api/tarjetas", { cache: "no-store" });
     if (r.status === 401) { mostrarAuth(); return; }
+    if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
     contactos = await r.json();
     renderInicio();
     if (document.getElementById("screen-contactos").style.display !== "none") renderContactosLista();
-  } catch {
-    document.getElementById("lista-inicio").innerHTML = '<p class="placeholder-text">Error al cargar tus contactos.</p>';
+  } catch (error) {
+    console.error("cargarContactos:", error);
+    document.getElementById("lista-inicio").innerHTML = `<p class="placeholder-text">Error al cargar tus contactos: ${escapeHtml(error.message)}</p>`;
   }
 }
 
 async function cargarDirectorio() {
   try {
-    const r = await fetch("/api/directorio");
+    const r = await fetch("/api/directorio", { cache: "no-store" });
     if (r.status === 401) { mostrarAuth(); return; }
+    if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
     directorio = await r.json();
-  } catch {
+  } catch (error) {
+    console.error("cargarDirectorio:", error);
     directorio = [];
   }
 }
@@ -234,15 +255,20 @@ function renderInicio() {
   document.getElementById("resumen-total").textContent = total;
   document.getElementById("resumen-nuevas").textContent = `+${nuevas} este mes`;
 
-  const texto = document.getElementById("buscador-inicio").value;
-  const visibles = filtrarLista(contactos, filtroActivo.inicio, texto).slice(0, 8);
   const cont = document.getElementById("lista-inicio");
-  if (visibles.length === 0) {
-    cont.innerHTML = estadoVacio("📇", "No tienes tarjetas guardadas todavía.", "Escanea tu primera tarjeta y comienza a construir tu red de contactos.");
-    return;
+  try {
+    const texto = document.getElementById("buscador-inicio").value;
+    const visibles = filtrarLista(contactos, filtroActivo.inicio, texto).slice(0, 8);
+    if (visibles.length === 0) {
+      cont.innerHTML = estadoVacio("📇", "No tienes tarjetas guardadas todavía.", "Escanea tu primera tarjeta y comienza a construir tu red de contactos.");
+      return;
+    }
+    cont.innerHTML = visibles.map((c) => filaContacto(c, false)).join("");
+    adjuntarClicksFila(cont);
+  } catch (error) {
+    console.error("renderInicio:", error);
+    cont.innerHTML = `<p class="placeholder-text">Ocurrió un error al mostrar tus contactos (${escapeHtml(error.message)}).</p>`;
   }
-  cont.innerHTML = visibles.map((c) => filaContacto(c, false)).join("");
-  adjuntarClicksFila(cont);
 }
 
 document.getElementById("buscador-inicio").addEventListener("input", renderInicio);
@@ -266,17 +292,22 @@ async function renderContactosLista() {
   }
 
   selectCat.style.display = vistaContactos === "directorio" ? "block" : "none";
-  const lista = vistaContactos === "directorio" ? directorio : contactos;
-  const texto = document.getElementById("buscador-contactos").value;
-  const categoria = vistaContactos === "directorio" ? selectCat.value : "";
-  const visibles = filtrarLista(lista, filtroActivo.contactos, texto, categoria);
+  try {
+    const lista = vistaContactos === "directorio" ? directorio : contactos;
+    const texto = document.getElementById("buscador-contactos").value;
+    const categoria = vistaContactos === "directorio" ? selectCat.value : "";
+    const visibles = filtrarLista(lista, filtroActivo.contactos, texto, categoria);
 
-  if (visibles.length === 0) {
-    cont.innerHTML = estadoVacio("📇", "No hay contactos para mostrar.", "Ajusta la búsqueda o los filtros.");
-    return;
+    if (visibles.length === 0) {
+      cont.innerHTML = estadoVacio("📇", "No hay contactos para mostrar.", "Ajusta la búsqueda o los filtros.");
+      return;
+    }
+    cont.innerHTML = visibles.map((c) => filaContacto(c, vistaContactos === "directorio")).join("");
+    adjuntarClicksFila(cont);
+  } catch (error) {
+    console.error("renderContactosLista:", error);
+    cont.innerHTML = `<p class="placeholder-text">Ocurrió un error al mostrar los contactos (${escapeHtml(error.message)}).</p>`;
   }
-  cont.innerHTML = visibles.map((c) => filaContacto(c, vistaContactos === "directorio")).join("");
-  adjuntarClicksFila(cont);
 }
 
 document.querySelectorAll('[data-vista-contactos]').forEach((chip) => {
@@ -299,6 +330,16 @@ document.getElementById("buscador-contactos").addEventListener("input", renderCo
 document.getElementById("filtro-categoria-directorio").addEventListener("change", renderContactosLista);
 
 // ---------- Acciones de contacto (whatsapp, redes) ----------
+// Defensa adicional para tarjetas guardadas antes de normalizar la URL al
+// guardar en el servidor (ej. "empresa.com" sin protocolo, que el navegador
+// resolvería como ruta relativa al propio sitio en vez de abrir la web real).
+function normalizarUrl(valor) {
+  const v = (valor || "").trim().replace(/\s+/g, "");
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  return `https://${v}`;
+}
+
 function whatsappUrl(telefono, mensaje) {
   const digitos = (telefono || "").replace(/\D/g, "");
   if (!digitos) return null;
@@ -332,11 +373,17 @@ function abrirDetalle(id, esDirectorio) {
   const flipInner = document.getElementById("detalle-flip-inner");
   const flipHint = document.getElementById("detalle-flip-hint");
   flipInner.classList.remove("flipped");
+  flipWrap.classList.remove("es-vertical");
   if (c.imagenFrente || c.imagenReverso) {
     flipWrap.style.display = "block";
     document.getElementById("detalle-cara-frente").innerHTML = c.imagenFrente ? `<img src="${c.imagenFrente}" alt="">` : `<div class="detail-face placeholder">${escapeHtml(c.nombre)}</div>`;
     document.getElementById("detalle-cara-reverso").innerHTML = c.imagenReverso ? `<img src="${c.imagenReverso}" alt="">` : `<div class="detail-face placeholder">Sin reverso</div>`;
     flipHint.style.display = c.imagenReverso ? "block" : "none";
+    // El contenedor se ajusta a vertical si cualquiera de las dos caras es vertical,
+    // así ninguna de las dos queda recortada al usar el flip.
+    Promise.all([detectarOrientacion(c.imagenFrente), detectarOrientacion(c.imagenReverso)]).then(([vFrente, vReverso]) => {
+      flipWrap.classList.toggle("es-vertical", vFrente || vReverso);
+    });
   } else {
     flipWrap.style.display = "none";
     flipHint.style.display = "none";
@@ -347,7 +394,8 @@ function abrirDetalle(id, esDirectorio) {
   if (wa) acciones.push(`<a href="${wa}" target="_blank" rel="noopener"><span class="glyph">💬</span>WhatsApp</a>`);
   if (c.telefono) acciones.push(`<a href="tel:${escapeHtml(c.telefono)}"><span class="glyph">📞</span>Llamar</a>`);
   if (c.email) acciones.push(`<a href="mailto:${escapeHtml(c.email)}"><span class="glyph">✉️</span>Correo</a>`);
-  if (c.sitioWeb) acciones.push(`<a href="${escapeHtml(c.sitioWeb)}" target="_blank" rel="noopener"><span class="glyph">🌐</span>Sitio web</a>`);
+  const sitioWebUrl = normalizarUrl(c.sitioWeb);
+  if (sitioWebUrl) acciones.push(`<a href="${escapeHtml(sitioWebUrl)}" target="_blank" rel="noopener"><span class="glyph">🌐</span>Sitio web</a>`);
   REDES.forEach((red) => {
     const url = urlRedSocial(red, c[red.campo]);
     if (url) acciones.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><span class="glyph">${red.glyph}</span>${red.etiqueta}</a>`);
@@ -416,21 +464,44 @@ function iniciarEscaneo() {
   document.getElementById("dot-frente").style.display = "none";
   document.getElementById("dot-reverso").style.display = "none";
   document.querySelectorAll(".scan-toggle button").forEach((b) => b.classList.toggle("active", b.dataset.lado === "frente"));
-  document.getElementById("scan-viewfinder").innerHTML = '<p class="hint">Coloca la tarjeta dentro del marco y toma la foto</p>';
+  const viewfinder = document.getElementById("scan-viewfinder");
+  viewfinder.innerHTML = '<p class="hint">Coloca la tarjeta dentro del marco y toma la foto</p>';
+  viewfinder.classList.remove("es-vertical");
   document.getElementById("btn-continuar-escaneo").disabled = true;
   mostrarPantalla("escanear");
+}
+
+async function refrescarViewfinder() {
+  const cont = document.getElementById("scan-viewfinder");
+  const src = capturas[ladoActivo];
+  cont.innerHTML = src ? `<img src="${src}" alt="">` : '<p class="hint">Coloca la tarjeta dentro del marco y toma la foto</p>';
+  cont.classList.toggle("es-vertical", src ? await detectarOrientacion(src) : false);
 }
 
 document.querySelectorAll(".scan-toggle button").forEach((btn) => {
   btn.addEventListener("click", () => {
     ladoActivo = btn.dataset.lado;
     document.querySelectorAll(".scan-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
-    const cont = document.getElementById("scan-viewfinder");
-    cont.innerHTML = capturas[ladoActivo] ? `<img src="${capturas[ladoActivo]}" alt="">` : '<p class="hint">Coloca la tarjeta dentro del marco y toma la foto</p>';
+    refrescarViewfinder();
   });
 });
 
 document.getElementById("btn-shutter").addEventListener("click", () => document.getElementById("input-captura").click());
+
+// Detecta si una imagen (ya sea recién capturada o ya guardada) es vertical
+// u horizontal, para que el contenedor que la muestra se ajuste sin recortar
+// ni deformar. Funciona igual para fotos nuevas y para las que ya están
+// guardadas en la base de datos (no requiere conocer la orientación de
+// antemano).
+function detectarOrientacion(src) {
+  return new Promise((resolve) => {
+    if (!src) { resolve(false); return; }
+    const img = new Image();
+    img.onload = () => resolve(img.naturalHeight > img.naturalWidth);
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
+}
 
 function comprimirImagen(file, maxAncho = 1200, calidad = 0.75) {
   return new Promise((resolve, reject) => {
@@ -459,7 +530,7 @@ document.getElementById("input-captura").addEventListener("change", async (e) =>
   try {
     const base64 = await comprimirImagen(file);
     capturas[ladoActivo] = base64;
-    document.getElementById("scan-viewfinder").innerHTML = `<img src="${base64}" alt="">`;
+    await refrescarViewfinder();
     document.getElementById(`dot-${ladoActivo}`).style.display = "inline-block";
     document.getElementById("btn-continuar-escaneo").disabled = !capturas.frente;
   } catch (error) { alert(error.message); }

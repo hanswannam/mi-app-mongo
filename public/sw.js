@@ -1,12 +1,16 @@
-const CACHE_NAME = "billetera-v2";
+const CACHE_NAME = "billetera-v3";
 const APP_SHELL = [
-  "/",
-  "/app.js",
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-512-maskable.png"
 ];
+
+// Rutas que cambian con cada deploy (HTML + lógica de la app). Estas SIEMPRE
+// deben ir primero a la red: servirlas desde caché puede mezclar una versión
+// vieja de index.html con una nueva de app.js (o viceversa) y romper la app
+// de forma silenciosa entre una sesión y otra.
+const RUTAS_DINAMICAS = ["/", "/app.js", "/admin", "/t"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -36,18 +40,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // App shell: responde desde caché al instante y actualiza en segundo plano.
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
+  // HTML/JS de la app: red primero, caché solo como respaldo sin conexión.
+  if (RUTAS_DINAMICAS.includes(url.pathname)) {
+    event.respondWith(
+      fetch(request)
         .then((response) => {
           if (response.ok) {
             caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
           }
           return response;
         })
-        .catch(() => cached);
-      return cached || network;
-    })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Resto de assets estáticos (iconos, manifest): caché primero, red de respaldo.
+  event.respondWith(
+    caches.match(request).then((cached) => cached || fetch(request))
   );
 });
