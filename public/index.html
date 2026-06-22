@@ -12,6 +12,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Billetera">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #4f46e5;
@@ -26,7 +29,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text-main);
             margin: 0;
@@ -38,6 +41,10 @@
             max-width: 720px;
             width: 100%;
             margin: 0 auto;
+        }
+
+        #vista-auth {
+            max-width: 1040px;
         }
 
         .panel {
@@ -324,6 +331,165 @@
             color: var(--text-muted);
             margin-top: 4px;
         }
+
+        /* --- Landing / pantalla de bienvenida --- */
+
+        .landing-hero {
+            text-align: center;
+            padding: 24px 0 8px;
+        }
+
+        .brand-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+        }
+
+        .brand-name {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .hero-title {
+            font-size: 36px;
+            line-height: 1.25;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            margin: 0 0 18px;
+            color: var(--text-main);
+        }
+
+        .hero-title .accent {
+            color: var(--primary);
+        }
+
+        .hero-subtitle {
+            font-size: 16px;
+            color: var(--text-muted);
+            max-width: 620px;
+            margin: 0 auto 40px;
+            line-height: 1.6;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .feature-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px 18px;
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .feature-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin: 0 0 6px;
+        }
+
+        .feature-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .auth-panel {
+            padding: 32px;
+        }
+
+        .auth-panel-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .steps-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0 0 18px;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .step {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .step strong {
+            color: var(--text-main);
+        }
+
+        .step-num {
+            flex-shrink: 0;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        .landing-footer {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 760px) {
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .auth-panel-grid {
+                grid-template-columns: 1fr;
+                gap: 28px;
+            }
+
+            .hero-title {
+                font-size: 28px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -332,45 +498,93 @@
     </div>
 
     <div class="container" id="vista-auth" style="display: none;">
-        <div class="panel">
-            <h1>Billetera Virtual</h1>
-            <p class="subtitle">Inicia sesión o crea una cuenta para guardar tus tarjetas de presentación.</p>
-
-            <div class="tabs">
-                <button type="button" class="tab-btn active" data-tab="login">Iniciar sesión</button>
-                <button type="button" class="tab-btn" data-tab="registro">Crear cuenta</button>
+        <header class="landing-hero">
+            <div class="brand-row">
+                <img src="/icons/icon-192.png" alt="" class="brand-logo">
+                <span class="brand-name">Billetera Virtual</span>
             </div>
+            <h1 class="hero-title">Todas tus tarjetas de presentación,<br><span class="accent">en un solo lugar</span></h1>
+            <p class="hero-subtitle">Guarda las tarjetas que recibes, deja que la inteligencia artificial las lea por ti, y contacta a cualquiera con un clic — llamada, WhatsApp, correo o redes sociales.</p>
+        </header>
 
-            <div id="auth-message"></div>
+        <section class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📸</div>
+                <h3 class="feature-title">Escanea con OCR</h3>
+                <p class="feature-text">Toma una foto de la tarjeta y la IA completa nombre, empresa, teléfono y más por ti.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3 class="feature-title">Tu colección privada</h3>
+                <p class="feature-text">Cada cuenta guarda sus propias tarjetas. Nadie más puede verlas.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3 class="feature-title">Contacta en un clic</h3>
+                <p class="feature-text">Llama, escribe por WhatsApp o visita su sitio y redes sociales sin escribir nada.</p>
+            </div>
+        </section>
 
-            <form id="form-login">
-                <div class="field" style="margin-bottom: 14px;">
-                    <label for="login-telefono">Teléfono</label>
-                    <input id="login-telefono" name="telefono" type="tel" required>
+        <section class="panel auth-panel">
+            <div class="auth-panel-grid">
+                <div>
+                    <h2 class="steps-title">Cómo crear tu cuenta</h2>
+                    <div class="steps">
+                        <div class="step">
+                            <span class="step-num">1</span>
+                            <div><strong>Tu nombre y teléfono.</strong><br>El teléfono será tu usuario para entrar.</div>
+                        </div>
+                        <div class="step">
+                            <span class="step-num">2</span>
+                            <div><strong>Tu número de DPI.</strong><br>Lo usamos como contraseña — nada nuevo que recordar.</div>
+                        </div>
+                        <div class="step">
+                            <span class="step-num">3</span>
+                            <div><strong>Listo.</strong><br>Ya puedes empezar a guardar tarjetas al instante.</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="field" style="margin-bottom: 14px;">
-                    <label for="login-dpi">DPI (contraseña)</label>
-                    <input id="login-dpi" name="dpi" type="password" required>
-                </div>
-                <button type="submit" class="btn">Entrar</button>
-            </form>
 
-            <form id="form-registro" style="display: none;">
-                <div class="field" style="margin-bottom: 14px;">
-                    <label for="registro-nombre">Nombre completo</label>
-                    <input id="registro-nombre" name="nombre" type="text" required>
+                <div>
+                    <div class="tabs">
+                        <button type="button" class="tab-btn active" data-tab="login">Iniciar sesión</button>
+                        <button type="button" class="tab-btn" data-tab="registro">Crear cuenta</button>
+                    </div>
+
+                    <div id="auth-message"></div>
+
+                    <form id="form-login">
+                        <div class="field" style="margin-bottom: 14px;">
+                            <label for="login-telefono">Teléfono</label>
+                            <input id="login-telefono" name="telefono" type="tel" required>
+                        </div>
+                        <div class="field" style="margin-bottom: 14px;">
+                            <label for="login-dpi">DPI (contraseña)</label>
+                            <input id="login-dpi" name="dpi" type="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-block">Entrar</button>
+                    </form>
+
+                    <form id="form-registro" style="display: none;">
+                        <div class="field" style="margin-bottom: 14px;">
+                            <label for="registro-nombre">Nombre completo</label>
+                            <input id="registro-nombre" name="nombre" type="text" required>
+                        </div>
+                        <div class="field" style="margin-bottom: 14px;">
+                            <label for="registro-telefono">Teléfono</label>
+                            <input id="registro-telefono" name="telefono" type="tel" required>
+                        </div>
+                        <div class="field" style="margin-bottom: 14px;">
+                            <label for="registro-dpi">DPI (será tu contraseña)</label>
+                            <input id="registro-dpi" name="dpi" type="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-block">Crear cuenta</button>
+                    </form>
                 </div>
-                <div class="field" style="margin-bottom: 14px;">
-                    <label for="registro-telefono">Teléfono</label>
-                    <input id="registro-telefono" name="telefono" type="tel" required>
-                </div>
-                <div class="field" style="margin-bottom: 14px;">
-                    <label for="registro-dpi">DPI (será tu contraseña)</label>
-                    <input id="registro-dpi" name="dpi" type="password" required>
-                </div>
-                <button type="submit" class="btn">Crear cuenta</button>
-            </form>
-        </div>
+            </div>
+        </section>
+
+        <p class="landing-footer">🇬🇹 Billetera Virtual — guarda y consulta tus tarjetas de presentación.</p>
     </div>
 
     <div class="container" id="vista-app" style="display: none;">
