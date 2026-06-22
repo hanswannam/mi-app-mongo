@@ -236,7 +236,7 @@
                 <div class="tabla-wrap">
                     <table>
                         <thead>
-                            <tr><th>Teléfono</th><th>Nombre</th><th>Rol</th><th>Registrado</th><th></th></tr>
+                            <tr><th>Teléfono</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Registrado</th><th>Último acceso</th><th></th></tr>
                         </thead>
                         <tbody>
                             ${usuarios.map((u) => `
@@ -244,13 +244,18 @@
                                     <td>${escapeHtml(u.telefono)}</td>
                                     <td>${escapeHtml(u.nombre)}</td>
                                     <td>${escapeHtml(u.rol)}</td>
+                                    <td>${u.estado === "suspendido" ? "Suspendido" : "Activo"}</td>
                                     <td>${new Date(u.creadoEn).toLocaleDateString("es-GT")}</td>
+                                    <td>${u.ultimoAcceso ? new Date(u.ultimoAcceso).toLocaleDateString("es-GT") : "—"}</td>
                                     <td>
                                         <div class="acciones-fila">
                                             <button class="btn btn-outline" data-editar-nombre="${escapeHtml(u.telefono)}">Editar nombre</button>
                                             <button class="btn btn-outline" data-reset-dpi="${escapeHtml(u.telefono)}">Resetear DPI</button>
                                             <button class="btn" data-cambiar-rol="${escapeHtml(u.telefono)}" data-rol="${escapeHtml(u.rol)}">
                                                 ${u.rol === "admin" ? "Quitar admin" : "Hacer admin"}
+                                            </button>
+                                            <button class="btn ${u.estado === "suspendido" ? "" : "btn-danger"}" data-cambiar-estado="${escapeHtml(u.telefono)}" data-estado="${escapeHtml(u.estado || "activo")}">
+                                                ${u.estado === "suspendido" ? "Activar" : "Suspender"}
                                             </button>
                                         </div>
                                     </td>
@@ -274,6 +279,28 @@
                         });
                         const data = await r.json();
                         if (!r.ok) throw new Error(data.error || "No se pudo actualizar el rol.");
+                        await cargarUsuarios();
+                    } catch (error) {
+                        alert(error.message);
+                        btn.disabled = false;
+                    }
+                });
+            });
+
+            contenido.querySelectorAll("button[data-cambiar-estado]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    const telefono = btn.dataset.cambiarEstado;
+                    const nuevoEstado = btn.dataset.estado === "suspendido" ? "activo" : "suspendido";
+                    if (nuevoEstado === "suspendido" && !confirm("¿Suspender a este usuario? No podrá iniciar sesión hasta que lo reactives.")) return;
+                    btn.disabled = true;
+                    try {
+                        const r = await fetch(`/api/admin/usuarios/${encodeURIComponent(telefono)}/estado`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ estado: nuevoEstado })
+                        });
+                        const data = await r.json();
+                        if (!r.ok) throw new Error(data.error || "No se pudo actualizar el estado.");
                         await cargarUsuarios();
                     } catch (error) {
                         alert(error.message);

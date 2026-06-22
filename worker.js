@@ -250,9 +250,11 @@ async function handleRegistro(request, env) {
         dpiHash,
         dpiSalt: salt,
         rol: "usuario",
+        estado: "activo",
         openaiApiKey: "",
         fotoPerfil: "",
-        creadoEn: new Date()
+        creadoEn: new Date(),
+        ultimoAcceso: new Date()
       };
       await collection.insertOne(usuarioNuevo);
     });
@@ -293,6 +295,11 @@ async function handleLogin(request, env) {
     if (hashCalculado !== usuario.dpiHash) {
       return jsonResponse({ error: "Usuario o contraseña incorrectos." }, 401);
     }
+    if (usuario.estado === "suspendido") {
+      return jsonResponse({ error: "Tu cuenta está suspendida. Contacta al administrador." }, 403);
+    }
+
+    await withUsuarios(env, (collection) => collection.updateOne({ telefono }, { $set: { ultimoAcceso: new Date() } }));
 
     const token = await firmarSesion({ telefono, rol: usuario.rol, exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
     return jsonResponse(infoUsuarioPublica(usuario), 200, { "Set-Cookie": cookieSesion(token) });
@@ -312,6 +319,12 @@ async function handleYo(request, env) {
   try {
     const usuario = await withUsuarios(env, (collection) => collection.findOne({ telefono: sesion.telefono }));
     if (!usuario) return jsonResponse({ error: "No autenticado." }, 401);
+    if (usuario.estado === "suspendido") {
+      return jsonResponse({ error: "Tu cuenta está suspendida. Contacta al administrador." }, 401, { "Set-Cookie": COOKIE_LOGOUT });
+    }
+    // /api/auth/yo se llama una vez por apertura de la app: es un buen punto,
+    // sin saturar la base de datos, para registrar el último acceso real.
+    await withUsuarios(env, (collection) => collection.updateOne({ telefono: sesion.telefono }, { $set: { ultimoAcceso: new Date() } }));
     return jsonResponse(infoUsuarioPublica(usuario));
   } catch (error) {
     return jsonResponse({ error: "Error al consultar la sesión.", message: error.message }, 500);
@@ -561,7 +574,8 @@ async function handleCreateTarjeta(request, env) {
     compartidos: 0,
     descargas: 0,
     creadoEn: ahora,
-    actualizadoEn: ahora
+    actualizadoEn: ahora,
+    editadoPorTelefono: sesion.telefono
   };
 
   try {
@@ -600,15 +614,25 @@ async function handleUpdateTarjeta(request, env, id) {
     return jsonResponse({ error: "El campo 'nombre' es obligatorio." }, 400);
   }
 
-  const duplicada = await buscarTarjetaDuplicada(env, sesion.telefono, campos.telefonoNormalizado, objectId);
+  const existente = await withTarjetas(env, (collection) => collection.findOne({ _id: objectId }));
+  if (!existente) return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
+  // El dueño siempre puede editar la suya; un admin puede editar cualquiera
+  // (Mejora 7 — administración completa de la plataforma).
+  if (existente.propietarioTelefono !== sesion.telefono && sesion.rol !== "admin") {
+    return jsonResponse({ error: "No puedes editar una tarjeta que no es tuya." }, 403);
+  }
+
+  // El duplicado se busca en la colección del DUEÑO de la tarjeta, no en la
+  // de quien edita (relevante cuando es un admin editando una tarjeta ajena).
+  const duplicada = await buscarTarjetaDuplicada(env, existente.propietarioTelefono, campos.telefonoNormalizado, objectId);
   if (duplicada) {
     return jsonResponse({
-      error: "Ya existe otra tarjeta tuya registrada con este número.",
+      error: "Ya existe otra tarjeta de ese usuario registrada con este número.",
       duplicado: { _id: duplicada._id, nombre: duplicada.nombre, empresa: duplicada.empresa }
     }, 409);
   }
 
-  const cambios = { ...campos, actualizadoEn: new Date() };
+  const cambios = { ...campos, actualizadoEn: new Date(), editadoPorTelefono: sesion.telefono };
   try {
     // Si no se manda una imagen nueva, se conserva la que ya estaba guardada.
     if (body.imagenFrente) cambios.imagenFrente = leerImagen(body.imagenFrente, "imagen del frente");
@@ -621,24 +645,16 @@ async function handleUpdateTarjeta(request, env, id) {
 
   try {
     const resultado = await withTarjetas(env, async (collection) => {
-      const existente = await collection.findOne({ _id: objectId });
-      if (!existente) return { tipo: "no-encontrada" };
-      if (existente.propietarioTelefono !== sesion.telefono) return { tipo: "prohibido" };
-
       if (cambios.esMiTarjeta) {
         await collection.updateMany(
-          { propietarioTelefono: sesion.telefono, _id: { $ne: objectId } },
+          { propietarioTelefono: existente.propietarioTelefono, _id: { $ne: objectId } },
           { $set: { esMiTarjeta: false } }
         );
       }
-
       await collection.updateOne({ _id: objectId }, { $set: cambios });
-      return { tipo: "ok", tarjeta: { ...existente, ...cambios } };
+      return { ...existente, ...cambios };
     });
-
-    if (resultado.tipo === "no-encontrada") return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
-    if (resultado.tipo === "prohibido") return jsonResponse({ error: "No puedes editar una tarjeta que no es tuya." }, 403);
-    return jsonResponse(resultado.tarjeta);
+    return jsonResponse(resultado);
   } catch (error) {
     return jsonResponse({ error: "Error al actualizar la tarjeta.", message: error.message }, 500);
   }
@@ -819,8 +835,9 @@ async function handleActivarInvitacion(request, env, token) {
       const salt = generarSalt();
       const dpiHash = await hashConSalt(dpi, salt);
       usuarioNuevo = {
-        telefono, nombre, dpiHash, dpiSalt: salt, rol: "usuario",
-        openaiApiKey: "", fotoPerfil: invitacion.datosTarjeta?.fotoPerfil || "", creadoEn: new Date()
+        telefono, nombre, dpiHash, dpiSalt: salt, rol: "usuario", estado: "activo",
+        openaiApiKey: "", fotoPerfil: invitacion.datosTarjeta?.fotoPerfil || "",
+        creadoEn: new Date(), ultimoAcceso: new Date()
       };
       await collection.insertOne(usuarioNuevo);
     });
@@ -838,7 +855,7 @@ async function handleActivarInvitacion(request, env, token) {
       etiqueta: "", favorito: false, esMiTarjeta: true,
       imagenFrente: d.imagenFrente || "", imagenReverso: d.imagenReverso || "",
       fotoPerfil: d.fotoPerfil || "", avatarMini: d.avatarMini || "",
-      vistas: 0, compartidos: 0, descargas: 0, creadoEn: ahora, actualizadoEn: ahora
+      vistas: 0, compartidos: 0, descargas: 0, creadoEn: ahora, actualizadoEn: ahora, editadoPorTelefono: telefono
     }));
 
     await withInvitaciones(env, (collection) => collection.updateOne({ token }, { $set: { estado: "aceptada", aceptadoEn: ahora } }));
@@ -1137,6 +1154,35 @@ async function handleListUsuarios(request, env) {
   }
 }
 
+async function handleCambiarEstado(request, env, telefonoObjetivo) {
+  const { error, sesion } = await requerirAdmin(request, env);
+  if (error) return error;
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
+  }
+
+  const nuevoEstado = body.estado === "suspendido" ? "suspendido" : "activo";
+  if (telefonoObjetivo === sesion.telefono && nuevoEstado === "suspendido") {
+    return jsonResponse({ error: "No puedes suspender tu propia cuenta." }, 400);
+  }
+
+  try {
+    const resultado = await withUsuarios(env, (collection) =>
+      collection.updateOne({ telefono: telefonoObjetivo }, { $set: { estado: nuevoEstado } })
+    );
+    if (resultado.matchedCount === 0) {
+      return jsonResponse({ error: "Usuario no encontrado." }, 404);
+    }
+    return jsonResponse({ ok: true, telefono: telefonoObjetivo, estado: nuevoEstado });
+  } catch (error) {
+    return jsonResponse({ error: "Error al actualizar el estado.", message: error.message }, 500);
+  }
+}
+
 async function handleCambiarRol(request, env, telefonoObjetivo) {
   const { error } = await requerirAdmin(request, env);
   if (error) return error;
@@ -1255,6 +1301,9 @@ export default {
 
     const matchRol = pathname.match(/^\/api\/admin\/usuarios\/([^/]+)\/rol$/);
     if (matchRol && metodo === "PATCH") return handleCambiarRol(request, env, decodeURIComponent(matchRol[1]));
+
+    const matchEstado = pathname.match(/^\/api\/admin\/usuarios\/([^/]+)\/estado$/);
+    if (matchEstado && metodo === "PATCH") return handleCambiarEstado(request, env, decodeURIComponent(matchEstado[1]));
 
     const matchAdminUsuario = pathname.match(/^\/api\/admin\/usuarios\/([^/]+)$/);
     if (matchAdminUsuario && metodo === "PUT") return handleAdminEditarUsuario(request, env, decodeURIComponent(matchAdminUsuario[1]));
