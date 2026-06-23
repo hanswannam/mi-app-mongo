@@ -35,6 +35,8 @@ function camposReferencia(body) {
   };
 }
 
+// Un networker solo ve las referencias en las que participa (las que dio o
+// las que recibió); admin_capitulo y superadmin ven todas las del capítulo.
 export async function handleListReferencias(request, env) {
   const denegado = await requerirModulo(request, env, "referencias", "ver");
   if (denegado) return denegado;
@@ -45,8 +47,13 @@ export async function handleListReferencias(request, env) {
   const capituloId = capituloDe(sesion, url);
   if (!capituloId) return jsonResponse({ error: "Falta indicar el capítulo." }, 400);
 
+  const filtro = { capituloId };
+  if (sesion.rol === "networker") {
+    filtro.$or = [{ referenciaDadaPorTelefono: sesion.telefono }, { referenciaRecibidaPorTelefono: sesion.telefono }];
+  }
+
   try {
-    const registros = await withReferencias(env, (collection) => collection.find({ capituloId }).sort({ fecha: -1 }).toArray());
+    const registros = await withReferencias(env, (collection) => collection.find(filtro).sort({ fecha: -1 }).toArray());
     return jsonResponse(registros);
   } catch (error) {
     return jsonResponse({ error: "Error al consultar referencias.", message: error.message }, 500);

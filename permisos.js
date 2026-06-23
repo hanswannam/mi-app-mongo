@@ -60,7 +60,7 @@ const MATRIZ_ROLES = {
     gpnc: set("ver"),
     unoauno: set("ver", "crear"),
     visitantes: set("ver", "crear"),
-    calendario: set("ver"),
+    calendario: set("ver", "crear", "editar"),
     capacitacion: set("ver"),
     recursos: set("ver"),
     asistencia: set("ver"),

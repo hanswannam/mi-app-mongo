@@ -31,8 +31,9 @@ function camposUnoAUno(body) {
   };
 }
 
-// Lista los 1 a 1 del capítulo. Filtro opcional ?telefono= para ver solo
-// los de un participante ("mis 1 a 1").
+// Un networker solo ve los 1 a 1 en los que participa; admin_capitulo y
+// superadmin ven todos los del capítulo (con filtro opcional ?telefono=
+// para revisar puntualmente a alguien).
 export async function handleListUnoAUno(request, env) {
   const denegado = await requerirModulo(request, env, "unoauno", "ver");
   if (denegado) return denegado;
@@ -44,10 +45,14 @@ export async function handleListUnoAUno(request, env) {
   if (!capituloId) return jsonResponse({ error: "Falta indicar el capítulo." }, 400);
 
   const filtro = { capituloId };
-  const telefono = url.searchParams.get("telefono");
-  if (telefono) {
-    const t = soloDigitos(telefono);
-    filtro.$or = [{ participante1Telefono: t }, { participante2Telefono: t }];
+  if (sesion.rol === "networker") {
+    filtro.$or = [{ participante1Telefono: sesion.telefono }, { participante2Telefono: sesion.telefono }];
+  } else {
+    const telefono = url.searchParams.get("telefono");
+    if (telefono) {
+      const t = soloDigitos(telefono);
+      filtro.$or = [{ participante1Telefono: t }, { participante2Telefono: t }];
+    }
   }
 
   try {
@@ -73,7 +78,10 @@ export async function handleCrearUnoAUno(request, env) {
   const capituloId = esSuperAdmin(sesion) ? texto(body.capituloId) || sesion.capituloId : sesion.capituloId;
   if (!capituloId) return jsonResponse({ error: "Falta indicar el capítulo." }, 400);
 
-  const participante1Telefono = soloDigitos(body.participante1Telefono) || sesion.telefono;
+  // Un networker siempre es uno de los dos participantes -- no puede crear
+  // un 1 a 1 "para otros". admin_capitulo/superadmin sí pueden agendarlo
+  // entre dos terceros si lo necesitan.
+  const participante1Telefono = sesion.rol === "networker" ? sesion.telefono : soloDigitos(body.participante1Telefono) || sesion.telefono;
   const participante2Telefono = soloDigitos(body.participante2Telefono);
   if (!participante2Telefono) return jsonResponse({ error: "Indica con quién es el 1 a 1." }, 400);
   if (participante1Telefono === participante2Telefono) {

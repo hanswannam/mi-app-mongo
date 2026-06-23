@@ -1035,10 +1035,19 @@ async function renderUnoAUno(cont) {
   });
 }
 
-function abrirFormUnoAUno(registro) {
+async function abrirFormUnoAUno(registro) {
   const esEdicion = Boolean(registro);
+  let opcionesNetworkers = "";
+  if (!esEdicion) {
+    const { ok, data } = await api(conCapitulo("/api/networkers"));
+    const candidatos = (ok && Array.isArray(data) ? data : []).filter((n) => n.telefono !== usuarioActual.telefono);
+    opcionesNetworkers = candidatos.length === 0
+      ? '<option value="">No hay otros networkers en el capítulo todavía</option>'
+      : '<option value="">Selecciona...</option>' + candidatos.map((n) => `<option value="${n.telefono}">${escapeHtml(n.nombre)}</option>`).join("");
+  }
+
   abrirPanel(esEdicion ? "Editar 1 a 1" : "Agendar 1 a 1", `
-    ${!esEdicion ? '<div class="campo"><label>Teléfono del otro participante</label><input id="uo-participante2"></div>' :
+    ${!esEdicion ? `<div class="campo"><label>¿Con quién es el 1 a 1?</label><select id="uo-participante2">${opcionesNetworkers}</select></div>` :
       `<div class="campo"><label>Participantes</label><input value="${escapeHtml(registro.participante1Telefono)} ↔ ${escapeHtml(registro.participante2Telefono)}" disabled></div>`}
     <div class="campo-fila">
       <div class="campo"><label>Fecha</label><input type="date" id="uo-fecha" value="${registro?.fecha ? new Date(registro.fecha).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
@@ -1193,13 +1202,20 @@ async function renderCalendario(cont) {
     tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">No hay próximos eventos en el calendario.</td></tr>`;
     return;
   }
+  // Un networker solo puede editar/eliminar sus propios eventos; un admin
+  // de capítulo puede tocar cualquiera (ya validado igual en el backend,
+  // esto solo evita mostrar una accion que terminaria en un 403).
+  const esPropio = (a) => usuarioActual.rol !== "networker" || a.creadoPorTelefono === usuarioActual.telefono;
+  const puedeEditar = puede("calendario", "editar");
+  const puedeEliminar = puede("calendario", "eliminar");
+
   tbody.innerHTML = data.map((a) => `
     <tr>
       <td>${formatFecha(a.fecha)} ${escapeHtml(a.hora || "")}</td>
       <td>${pill(a.tipo.replace(/_/g, " "), a.completado ? "activo" : "programado")}</td>
-      <td style="cursor:pointer;" data-id="${a._id}" class="td-editar-evento"><strong>${escapeHtml(a.titulo)}</strong></td>
+      <td ${puedeEditar && esPropio(a) ? `style="cursor:pointer;" data-id="${a._id}" class="td-editar-evento"` : ""}><strong>${escapeHtml(a.titulo)}</strong></td>
       <td>${escapeHtml(a.lugarOLink || "—")}</td>
-      <td style="text-align:right;"><button class="btn-secundario btn-eliminar-evento" data-id="${a._id}" style="padding:6px 12px;font-size:12px;">Eliminar</button></td>
+      <td style="text-align:right;">${puedeEliminar && esPropio(a) ? `<button class="btn-secundario btn-eliminar-evento" data-id="${a._id}" style="padding:6px 12px;font-size:12px;">Eliminar</button>` : ""}</td>
     </tr>`).join("");
   tbody.querySelectorAll(".td-editar-evento").forEach((td) => {
     td.addEventListener("click", () => abrirFormEvento(data.find((a) => a._id === td.dataset.id)));

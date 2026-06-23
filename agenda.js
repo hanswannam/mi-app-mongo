@@ -124,6 +124,11 @@ export async function handleActualizarAgenda(request, env, id) {
     if (!esSuperAdmin(sesion) && sesion.capituloId !== registro.capituloId) {
       return jsonResponse({ error: "No tienes acceso a este evento." }, 403);
     }
+    // El admin_capitulo gestiona el calendario de todo el capítulo; un
+    // networker solo puede tocar los eventos que él mismo creó.
+    if (sesion.rol === "networker" && registro.creadoPorTelefono !== sesion.telefono) {
+      return jsonResponse({ error: "Solo puedes editar los eventos que tú creaste." }, 403);
+    }
 
     const campos = camposAgenda(body);
     if (!campos.titulo) return jsonResponse({ error: "El título es obligatorio." }, 400);

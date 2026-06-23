@@ -41,8 +41,9 @@ function capituloDe(sesion, url) {
   return esSuperAdmin(sesion) ? url.searchParams.get("capituloId") : sesion.capituloId;
 }
 
-// Lista visitantes del capítulo. Filtro opcional por quién invitó
-// (?invitadoPorTelefono=...) para la vista "mis visitantes" de un networker.
+// Un networker solo ve los visitantes que él mismo aportó; admin_capitulo
+// y superadmin ven todos los del capítulo (con filtro opcional
+// ?invitadoPorTelefono= para revisar puntualmente a alguien).
 export async function handleListVisitantes(request, env) {
   const denegado = await requerirModulo(request, env, "visitantes", "ver");
   if (denegado) return denegado;
@@ -54,8 +55,12 @@ export async function handleListVisitantes(request, env) {
   if (!capituloId) return jsonResponse({ error: "Falta indicar el capítulo." }, 400);
 
   const filtro = { capituloId };
-  const invitadoPorTelefono = url.searchParams.get("invitadoPorTelefono");
-  if (invitadoPorTelefono) filtro.invitadoPorTelefono = soloDigitos(invitadoPorTelefono);
+  if (sesion.rol === "networker") {
+    filtro.invitadoPorTelefono = sesion.telefono;
+  } else {
+    const invitadoPorTelefono = url.searchParams.get("invitadoPorTelefono");
+    if (invitadoPorTelefono) filtro.invitadoPorTelefono = soloDigitos(invitadoPorTelefono);
+  }
 
   try {
     const visitantes = await withVisitantes(env, (collection) =>
