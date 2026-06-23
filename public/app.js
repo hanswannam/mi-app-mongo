@@ -559,7 +559,7 @@ document.getElementById("input-captura").addEventListener("change", (e) => {
     await refrescarViewfinder();
     document.getElementById(`dot-${ladoActivo}`).style.display = "inline-block";
     document.getElementById("btn-continuar-escaneo").disabled = !capturas.frente;
-  });
+  }, "input-captura");
   e.target.value = "";
 });
 
@@ -570,10 +570,15 @@ document.getElementById("input-captura").addEventListener("change", (e) => {
 let previewSrcOriginal = "";
 let previewRotacion = 0;
 let previewCallback = null;
+let previewInputId = null;
 
-function abrirPreviewCaptura(file, alConfirmar) {
+// inputId: el <input type="file"> que originó esta captura, para poder
+// volver a abrirlo si el usuario toca "Tomar otra" (si no, ese botón solo
+// cerraba el modal sin dejar ninguna forma de elegir una foto distinta).
+function abrirPreviewCaptura(file, alConfirmar, inputId) {
   previewRotacion = 0;
   previewCallback = alConfirmar;
+  previewInputId = inputId;
   leerComoDataUrl(file)
     .then((dataUrl) => {
       previewSrcOriginal = dataUrl;
@@ -603,7 +608,11 @@ document.getElementById("btn-preview-rotar-der").addEventListener("click", () =>
   previewRotacion = (previewRotacion + 90) % 360;
   actualizarPreviewCaptura();
 });
-document.getElementById("btn-preview-cancelar").addEventListener("click", cerrarPreviewCaptura);
+document.getElementById("btn-preview-cancelar").addEventListener("click", () => {
+  const inputId = previewInputId;
+  cerrarPreviewCaptura();
+  if (inputId) document.getElementById(inputId).click();
+});
 document.getElementById("btn-preview-usar").addEventListener("click", async () => {
   const btn = document.getElementById("btn-preview-usar");
   btn.disabled = true;
@@ -668,7 +677,7 @@ document.getElementById("input-thumb-frente").addEventListener("change", (e) => 
     capturas.frente = base64;
     avatarMiniBase64 = await generarMiniatura(base64);
     actualizarThumb("frente", base64);
-  });
+  }, "input-thumb-frente");
   e.target.value = "";
 });
 document.getElementById("input-thumb-reverso").addEventListener("change", (e) => {
@@ -677,7 +686,7 @@ document.getElementById("input-thumb-reverso").addEventListener("change", (e) =>
   abrirPreviewCaptura(file, (base64) => {
     capturas.reverso = base64;
     actualizarThumb("reverso", base64);
-  });
+  }, "input-thumb-reverso");
   e.target.value = "";
 });
 
