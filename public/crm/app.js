@@ -154,6 +154,18 @@ document.getElementById("btn-logout").addEventListener("click", async () => {
   location.reload();
 });
 
+// ---------- Menú lateral en celular (drawer) ----------
+function abrirSidebarMovil() {
+  document.getElementById("sidebar").classList.add("abierto");
+  document.getElementById("sidebar-overlay").classList.add("visible");
+}
+function cerrarSidebarMovil() {
+  document.getElementById("sidebar").classList.remove("abierto");
+  document.getElementById("sidebar-overlay").classList.remove("visible");
+}
+document.getElementById("btn-hamburguesa").addEventListener("click", abrirSidebarMovil);
+document.getElementById("sidebar-overlay").addEventListener("click", cerrarSidebarMovil);
+
 async function cargarMisPermisos() {
   const { ok, data } = await api("/api/permisos/mis-permisos");
   misPermisos = ok && data.permisos ? data.permisos : {};
@@ -184,6 +196,7 @@ async function mostrarApp() {
 
   renderTopbarCapitulo();
   renderSidebar();
+  renderBottomNav();
   await renderVista();
 }
 
@@ -216,10 +229,37 @@ function renderSidebar() {
   nav.querySelectorAll(".sidebar-item:not(.proximamente)").forEach((el) => {
     el.addEventListener("click", async () => {
       vistaActiva = el.dataset.vista;
+      cerrarSidebarMovil();
       renderSidebar();
+      renderBottomNav();
       await renderVista();
     });
   });
+}
+
+// Subconjunto de SECCIONES para la barra inferior en celular -- los
+// accesos de uso más frecuente día a día. "Más" abre el menú lateral
+// completo como un drawer en vez de navegar a una vista.
+const SECCIONES_BOTTOM_NAV = ["dashboard", "networkers", "gpnc", "visitantes"];
+
+function renderBottomNav() {
+  const nav = document.getElementById("bottom-nav");
+  const items = SECCIONES.filter((s) => SECCIONES_BOTTOM_NAV.includes(s.id) && puedeVer(s.id));
+  nav.innerHTML = items
+    .map((s) => `<button type="button" class="bottom-nav-item ${s.id === vistaActiva ? "activo" : ""}" data-vista="${s.id}">
+      <span class="icono">${s.icono}</span><span>${s.label.split(" ")[0]}</span>
+    </button>`)
+    .join("") + `<button type="button" class="bottom-nav-item" id="btn-bottom-mas"><span class="icono">☰</span><span>Más</span></button>`;
+
+  nav.querySelectorAll(".bottom-nav-item[data-vista]").forEach((el) => {
+    el.addEventListener("click", async () => {
+      vistaActiva = el.dataset.vista;
+      renderSidebar();
+      renderBottomNav();
+      await renderVista();
+    });
+  });
+  document.getElementById("btn-bottom-mas").addEventListener("click", abrirSidebarMovil);
 }
 
 async function renderVista() {

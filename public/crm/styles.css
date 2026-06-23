@@ -93,15 +93,24 @@ input, select, textarea { font-family: inherit; font-size: 15px; }
 .main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .topbar {
   height: 64px; flex-shrink: 0; background: var(--blanco); border-bottom: 1px solid var(--gris-borde);
-  display: flex; align-items: center; justify-content: space-between; padding: 0 28px;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 28px; gap: 14px;
 }
-.topbar-capitulo { font-weight: 700; font-size: 15px; }
-.topbar-usuario { font-size: 13px; color: var(--texto-claro); display: flex; align-items: center; gap: 8px; }
+.topbar-capitulo { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-usuario { font-size: 13px; color: var(--texto-claro); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .topbar-rol {
   background: var(--gris-claro); color: var(--texto); padding: 3px 9px; border-radius: 3px; font-weight: 600;
   text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em;
 }
 .contenido { flex: 1; padding: 28px; overflow-y: auto; }
+
+.btn-hamburguesa {
+  display: none; background: none; border: none; font-size: 22px; padding: 4px 6px; color: var(--azul-oscuro); flex-shrink: 0;
+}
+.sidebar-overlay { position: fixed; inset: 0; background: rgba(15,27,61,0.4); z-index: 55; display: none; }
+.sidebar-overlay.visible { display: block; }
+
+/* ---------- Navegacion inferior (solo movil) ---------- */
+.bottom-nav { display: none; }
 
 /* ---------- Encabezados de vista ---------- */
 .vista-header { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--gris-borde); padding-bottom: 16px; margin-bottom: 24px; }
@@ -191,9 +200,43 @@ table.tabla-crm tr:hover td { background: #FAFBFD; }
 .btn-rapido.deshabilitado { opacity: 0.3; pointer-events: none; }
 
 @media (max-width: 880px) {
-  .sidebar { position: fixed; left: -232px; transition: left 0.2s ease; z-index: 60; }
+  .btn-hamburguesa { display: block; }
+  .topbar-usuario span:first-child { display: none; } /* en movil solo se ve el rol, el nombre ya esta en el sidebar */
+
+  .sidebar {
+    position: fixed; top: 0; left: -260px; height: 100dvh; width: 260px;
+    transition: left 0.2s ease; z-index: 56;
+  }
   .sidebar.abierto { left: 0; }
+
   .metrica-estrella, .metrica-stack { grid-column: span 12; }
   .panel-lateral { width: 100%; }
   .barra-busqueda { flex-direction: column; }
+
+  /* Tablas: en vez de comprimir columnas hasta ser ilegibles, se permite
+     scroll horizontal dentro de su propia caja -- el resto de la pantalla
+     no se mueve. */
+  .tabla-wrap { overflow-x: auto; }
+  table.tabla-crm { min-width: 640px; }
+
+  .vista-header { flex-direction: column; align-items: stretch; gap: 12px; }
+  .vista-header > div:last-child:not(:first-child) { display: flex; gap: 8px; flex-wrap: wrap; }
+  .vista-header .btn-primario, .vista-header .btn-secundario { flex: 1; white-space: nowrap; font-size: 13px; padding: 10px 12px; }
+
+  /* Botones de accion rapida: objetivo tactil de al menos 40px (vs. 30px
+     en escritorio, donde el cursor es mas preciso que un dedo). */
+  .btn-rapido { width: 40px; height: 40px; font-size: 17px; }
+
+  .contenido { padding: 16px; padding-bottom: 86px; } /* deja espacio para el bottom-nav fijo */
+
+  .bottom-nav {
+    display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 64px; z-index: 40;
+    background: var(--blanco); border-top: 1px solid var(--gris-borde); padding: 0 4px;
+  }
+  .bottom-nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: none; border: none; color: var(--texto-claro); font-size: 10px; font-weight: 600; padding: 6px 2px;
+  }
+  .bottom-nav-item .icono { font-size: 19px; }
+  .bottom-nav-item.activo { color: var(--dorado-oscuro); }
 }
