@@ -1629,14 +1629,33 @@ async function renderConfiguracion(cont) {
 }
 
 // ---------- Mensajes ----------
+let viendoMensajesEnviados = false;
+
 async function renderMensajes(cont) {
   const puedeEnviar = puede("mensajes", "crear");
   cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Mensajes</div><div class="vista-sub">Comunicados del capítulo</div></div>
-    ${puedeEnviar ? '<button class="btn-primario" id="btn-nuevo-mensaje">+ Nuevo mensaje</button>' : ""}</div>
+    <div style="display:flex;gap:10px;">
+      ${puedeEnviar ? `<button class="btn-secundario" id="btn-toggle-mensajes">${viendoMensajesEnviados ? "📥 Ver recibidos" : "📤 Ver enviados"}</button>` : ""}
+      ${puedeEnviar ? '<button class="btn-primario" id="btn-nuevo-mensaje">+ Nuevo mensaje</button>' : ""}
+    </div></div>
     <div id="lista-mensajes">Cargando…</div>`;
 
-  if (puedeEnviar) document.getElementById("btn-nuevo-mensaje").addEventListener("click", () => abrirFormMensaje());
+  if (puedeEnviar) {
+    document.getElementById("btn-nuevo-mensaje").addEventListener("click", () => abrirFormMensaje());
+    document.getElementById("btn-toggle-mensajes").addEventListener("click", async () => {
+      viendoMensajesEnviados = !viendoMensajesEnviados;
+      await renderVista();
+    });
+  }
 
+  if (viendoMensajesEnviados && puedeEnviar) {
+    await renderMensajesEnviados();
+  } else {
+    await renderMensajesRecibidos();
+  }
+}
+
+async function renderMensajesRecibidos() {
   const { ok, data } = await api("/api/mensajes");
   const cont2 = document.getElementById("lista-mensajes");
   if (!ok) { cont2.innerHTML = `<div class="estado-vacio">${escapeHtml(data.error || "No se pudo cargar.")}</div>`; return; }
@@ -1667,28 +1686,67 @@ async function renderMensajes(cont) {
   });
 }
 
-async function abrirFormMensaje() {
+async function renderMensajesEnviados() {
+  const cont2 = document.getElementById("lista-mensajes");
+  const [{ ok, data }, { data: esferas }, { data: networkers }] = await Promise.all([
+    api(conCapitulo("/api/mensajes/enviados")),
+    api(conCapitulo("/api/esferas")),
+    api(conCapitulo("/api/networkers"))
+  ]);
+  const listaEsferas = Array.isArray(esferas) ? esferas : [];
+  const listaNetworkers = Array.isArray(networkers) ? networkers : [];
+
+  const describirDestino = (m) => {
+    if (m.destinoTipo === "todos") return "Todos los networkers";
+    if (m.destinoTipo === "esfera") return `Esfera: ${listaEsferas.find((e) => e._id === m.esferaId)?.nombre || "—"}`;
+    return `Individual: ${listaNetworkers.find((n) => n.telefono === m.destinatarioTelefono)?.nombre || m.destinatarioTelefono}`;
+  };
+
+  if (!ok) { cont2.innerHTML = `<div class="estado-vacio">${escapeHtml(data.error || "No se pudo cargar.")}</div>`; return; }
+  if (data.length === 0) { cont2.innerHTML = `<div class="estado-vacio">📤 Todavía no has enviado ningún mensaje.</div>`; return; }
+
+  cont2.innerHTML = `<div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Asunto</th><th>Para</th><th>Fecha</th><th>Leído</th><th></th></tr></thead><tbody id="tabla-mensajes-enviados"></tbody></table></div>`;
+  const tbody = document.getElementById("tabla-mensajes-enviados");
+  tbody.innerHTML = data.map((m) => `
+    <tr data-id="${m._id}">
+      <td><strong>${escapeHtml(m.asunto)}</strong></td>
+      <td>${escapeHtml(describirDestino(m))}</td>
+      <td>${formatFecha(m.creadoEn)}</td>
+      <td>${(m.leidoPor || []).length} de ${m.destinatarios.length}</td>
+      <td style="text-align:right;"><button class="btn-secundario btn-reenviar-mensaje" style="padding:6px 12px;font-size:12px;">🔁 Reenviar</button></td>
+    </tr>`).join("");
+
+  tbody.querySelectorAll(".btn-reenviar-mensaje").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const m = data.find((x) => x._id === btn.closest("tr").dataset.id);
+      abrirFormMensaje(m);
+    });
+  });
+}
+
+async function abrirFormMensaje(mensajeOriginal) {
   const { ok: okEsf, data: esferas } = await api(conCapitulo("/api/esferas"));
   const { ok: okNet, data: networkers } = await api(conCapitulo("/api/networkers"));
   const listaEsferas = okEsf && Array.isArray(esferas) ? esferas : [];
   const listaNetworkers = okNet && Array.isArray(networkers) ? networkers : [];
+  const destinoInicial = mensajeOriginal?.destinoTipo || "todos";
 
-  abrirPanel("Nuevo mensaje", `
+  abrirPanel(mensajeOriginal ? "Reenviar mensaje" : "Nuevo mensaje", `
     <div class="campo"><label>Enviar a</label>
       <select id="msg-destino-tipo">
-        <option value="todos">Todos los networkers del capítulo</option>
-        <option value="esfera">Una esfera específica</option>
-        <option value="individual">Un networker específico</option>
+        <option value="todos" ${destinoInicial === "todos" ? "selected" : ""}>Todos los networkers del capítulo</option>
+        <option value="esfera" ${destinoInicial === "esfera" ? "selected" : ""}>Una esfera específica</option>
+        <option value="individual" ${destinoInicial === "individual" ? "selected" : ""}>Un networker específico</option>
       </select>
     </div>
-    <div class="campo" id="msg-campo-esfera" style="display:none;"><label>Esfera</label>
-      <select id="msg-esfera">${listaEsferas.map((e) => `<option value="${e._id}">${escapeHtml(e.nombre)}</option>`).join("")}</select>
+    <div class="campo" id="msg-campo-esfera" style="display:${destinoInicial === "esfera" ? "block" : "none"};"><label>Esfera</label>
+      <select id="msg-esfera">${listaEsferas.map((e) => `<option value="${e._id}" ${mensajeOriginal?.esferaId === e._id ? "selected" : ""}>${escapeHtml(e.nombre)}</option>`).join("")}</select>
     </div>
-    <div class="campo" id="msg-campo-networker" style="display:none;"><label>Networker</label>
-      <select id="msg-networker">${listaNetworkers.map((n) => `<option value="${n.telefono}">${escapeHtml(n.nombre)}</option>`).join("")}</select>
+    <div class="campo" id="msg-campo-networker" style="display:${destinoInicial === "individual" ? "block" : "none"};"><label>Networker</label>
+      <select id="msg-networker">${listaNetworkers.map((n) => `<option value="${n.telefono}" ${mensajeOriginal?.destinatarioTelefono === n.telefono ? "selected" : ""}>${escapeHtml(n.nombre)}</option>`).join("")}</select>
     </div>
-    <div class="campo"><label>Asunto</label><input id="msg-asunto"></div>
-    <div class="campo"><label>Mensaje</label><textarea id="msg-cuerpo" rows="5"></textarea></div>
+    <div class="campo"><label>Asunto</label><input id="msg-asunto" value="${escapeHtml(mensajeOriginal?.asunto || "")}"></div>
+    <div class="campo"><label>Mensaje</label><textarea id="msg-cuerpo" rows="5">${escapeHtml(mensajeOriginal?.cuerpo || "")}</textarea></div>
     <div class="panel-acciones">
       <button class="btn-primario" id="btn-enviar-mensaje">Enviar</button>
       <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
