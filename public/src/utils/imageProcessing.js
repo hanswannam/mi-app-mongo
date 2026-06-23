@@ -34,6 +34,47 @@ export function generarMiniatura(dataUrlOrigen, maxLado = 120, calidad = 0.6) {
   });
 }
 
+// Convierte un File en dataURL sin comprimir todavía (para previsualizar
+// antes de aplicar rotación/compresión final).
+export function leerComoDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    lector.onload = () => resolve(lector.result);
+    lector.readAsDataURL(file);
+  });
+}
+
+// Rota una imagen ya cargada (dataURL) en pasos de 90° y la comprime al
+// mismo tiempo. Si el giro no es de 180° (o 0°), intercambia ancho/alto del
+// lienzo final para que la imagen rotada no quede recortada. Se usa tanto
+// para la previsualización en vivo (re-rotando siempre desde el original,
+// para no perder calidad en cada vuelta) como para el resultado final.
+export function rotarImagenDataUrl(dataUrl, grados = 0, maxAncho = 1200, calidad = 0.75) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error("El archivo no es una imagen válida."));
+    img.onload = () => {
+      const anguloRad = (grados * Math.PI) / 180;
+      const esGiroDeLado = grados % 180 !== 0;
+      const anchoOrigen = img.naturalWidth || img.width;
+      const altoOrigen = img.naturalHeight || img.height;
+      const escala = Math.min(1, maxAncho / (esGiroDeLado ? altoOrigen : anchoOrigen));
+      const anchoDibujo = anchoOrigen * escala;
+      const altoDibujo = altoOrigen * escala;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(esGiroDeLado ? altoDibujo : anchoDibujo);
+      canvas.height = Math.round(esGiroDeLado ? anchoDibujo : altoDibujo);
+      const ctx = canvas.getContext("2d");
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(anguloRad);
+      ctx.drawImage(img, -anchoDibujo / 2, -altoDibujo / 2, anchoDibujo, altoDibujo);
+      resolve(canvas.toDataURL("image/jpeg", calidad));
+    };
+    img.src = dataUrl;
+  });
+}
+
 export function comprimirImagen(file, maxAncho = 1200, calidad = 0.75) {
   return new Promise((resolve, reject) => {
     const lector = new FileReader();

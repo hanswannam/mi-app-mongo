@@ -196,6 +196,10 @@ label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 }
 .form-thumbs .thumb img { width: 100%; height: 100%; object-fit: contain; }
 .form-thumbs .thumb span { font-size: 11px; color: var(--text-muted); }
+.thumb-eliminar {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
+  border: none; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; line-height: 1; cursor: pointer;
+}
 .form-section-title { font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 22px 0 12px; text-transform: uppercase; letter-spacing: .04em; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); }
 .toggle-row:first-of-type { border-top: none; }
@@ -471,6 +475,7 @@ label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
       <div class="notes-box" id="detalle-notas" style="display:none;"></div>
       <div class="detail-footer-actions">
         <button type="button" class="btn btn-outline btn-block" id="btn-editar-detalle">Editar</button>
+        <button type="button" class="btn-ghost btn-block" id="btn-enviar-detalle" style="margin-top:8px;">📤 Enviar a otro usuario</button>
         <button type="button" class="btn-ghost btn-block" id="btn-invitar-detalle" style="margin-top:8px;">📲 Invitar a la plataforma</button>
       </div>
     </section>
@@ -553,6 +558,36 @@ label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
     <div style="display:flex; gap:8px; margin-top:14px;">
       <button type="button" class="btn btn-outline" id="modal-dpi-cancelar" style="flex:1;">Cancelar</button>
       <button type="button" class="btn" id="modal-dpi-confirmar" style="flex:1;">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-preview-captura" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <h3 style="margin:0 0 12px;">Revisa la foto</h3>
+    <div style="background:var(--surface-2); border-radius:12px; overflow:hidden; margin-bottom:14px; display:flex; align-items:center; justify-content:center; min-height:200px;">
+      <img id="preview-captura-img" style="max-width:100%; max-height:320px; display:block;" alt="">
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <button type="button" class="btn btn-outline" id="btn-preview-rotar-izq" style="flex:1;">↺ Rotar</button>
+      <button type="button" class="btn btn-outline" id="btn-preview-rotar-der" style="flex:1;">↻ Rotar</button>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button type="button" class="btn btn-outline" id="btn-preview-cancelar" style="flex:1;">Tomar otra</button>
+      <button type="button" class="btn" id="btn-preview-usar" style="flex:1;">Usar esta foto</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-enviar-tarjeta" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 style="margin:0 0 6px;">Enviar tarjeta</h3>
+    <p class="placeholder-text" style="margin:0 0 14px;">Ingresa el teléfono del usuario de la app al que quieres enviarle esta tarjeta.</p>
+    <input type="tel" id="enviar-tarjeta-input" placeholder="Teléfono">
+    <div id="enviar-tarjeta-mensaje"></div>
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button type="button" class="btn btn-outline" id="btn-enviar-tarjeta-cancelar" style="flex:1;">Cancelar</button>
+      <button type="button" class="btn" id="btn-enviar-tarjeta-confirmar" style="flex:1;">Enviar</button>
     </div>
   </div>
 </div>

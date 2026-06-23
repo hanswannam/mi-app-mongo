@@ -2,14 +2,14 @@ import { escapeHtml, iniciales } from "./src/utils/strings.js";
 import { normalizarUrl, whatsappUrl, urlRedSocial } from "./src/utils/contactLinks.js";
 import { filtrarLista } from "./src/utils/listFilters.js";
 import { fetchConLimite, mensajeDeError } from "./src/utils/network.js";
-import { detectarOrientacion, generarMiniatura, comprimirImagen, recortarYComprimirCuadrado } from "./src/utils/imageProcessing.js";
+import { detectarOrientacion, generarMiniatura, recortarYComprimirCuadrado, leerComoDataUrl, rotarImagenDataUrl } from "./src/utils/imageProcessing.js";
 import { REDES, filaContacto } from "./src/templates/contactRow.js";
 import { estadoVacio } from "./src/templates/emptyState.js";
 import { dibujarSparkline } from "./src/templates/sparkline.js";
 import { consultarSesionActual, iniciarSesion, registrarUsuario, cerrarSesion, solicitarRecuperacion } from "./src/auth.js";
 import { actualizarFotoPerfil, actualizarCuenta, guardarApiKey } from "./src/perfil.js";
 import { escanearImagen } from "./src/ocr.js";
-import { guardarTarjeta, obtenerTarjetas, obtenerDirectorio, obtenerTarjeta, invitarContacto } from "./src/tarjetas.js";
+import { guardarTarjeta, obtenerTarjetas, obtenerDirectorio, obtenerTarjeta, invitarContacto, enviarTarjeta } from "./src/tarjetas.js";
 import { registrarEvento, obtenerEstadisticas } from "./src/eventos.js";
 
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
@@ -413,6 +413,8 @@ async function abrirDetalle(id, esDirectorio) {
   btnInvitar.disabled = false;
   btnInvitar.textContent = "📲 Invitar a la plataforma";
 
+  document.getElementById("btn-enviar-detalle").style.display = esDirectorio ? "none" : "block";
+
   mostrarPantalla("detalle");
 }
 
@@ -430,6 +432,46 @@ document.getElementById("btn-invitar-detalle").addEventListener("click", async (
     alert(mensajeDeError(error));
   } finally {
     btn.disabled = false; btn.textContent = "📲 Invitar a la plataforma";
+  }
+});
+
+// ---------- Enviar tarjeta a otro usuario ----------
+document.getElementById("btn-enviar-detalle").addEventListener("click", () => {
+  if (!detalleActualId) return;
+  document.getElementById("enviar-tarjeta-input").value = "";
+  document.getElementById("enviar-tarjeta-mensaje").innerHTML = "";
+  document.getElementById("modal-enviar-tarjeta").style.display = "flex";
+});
+document.getElementById("btn-enviar-tarjeta-cancelar").addEventListener("click", () => {
+  document.getElementById("modal-enviar-tarjeta").style.display = "none";
+});
+document.getElementById("btn-enviar-tarjeta-confirmar").addEventListener("click", async () => {
+  const telefono = document.getElementById("enviar-tarjeta-input").value.trim();
+  const msg = document.getElementById("enviar-tarjeta-mensaje");
+  if (!telefono) return;
+  const btn = document.getElementById("btn-enviar-tarjeta-confirmar");
+  btn.disabled = true;
+  msg.innerHTML = "";
+  try {
+    const { status, ok, data } = await enviarTarjeta(detalleActualId, telefono);
+    if (ok) {
+      document.getElementById("modal-enviar-tarjeta").style.display = "none";
+      alert(`Tarjeta enviada correctamente a ${data.receptorNombre || telefono}.`);
+      return;
+    }
+    if (status === 404) {
+      const wa = whatsappUrl(telefono, "Hola, te invito a usar Billetera Virtual para guardar y compartir tarjetas de presentación.");
+      msg.innerHTML = `<p class="message error">${escapeHtml(data.error)}</p>` +
+        (wa ? `<button type="button" class="btn-ghost" id="btn-enviar-invitar-en-su-lugar" style="margin-top:8px;">Invitar a la aplicación</button>` : "");
+      const btnInvitar = document.getElementById("btn-enviar-invitar-en-su-lugar");
+      if (btnInvitar) btnInvitar.addEventListener("click", () => window.open(wa, "_blank"));
+    } else {
+      msg.innerHTML = `<p class="message error">${escapeHtml(data.error || "No se pudo enviar la tarjeta.")}</p>`;
+    }
+  } catch (error) {
+    msg.innerHTML = `<p class="message error">${escapeHtml(mensajeDeError(error))}</p>`;
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -508,18 +550,73 @@ document.querySelectorAll(".scan-toggle button").forEach((btn) => {
 document.getElementById("btn-shutter").addEventListener("click", () => document.getElementById("input-captura").click());
 
 
-document.getElementById("input-captura").addEventListener("change", async (e) => {
+document.getElementById("input-captura").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  try {
-    const base64 = await comprimirImagen(file);
+  abrirPreviewCaptura(file, async (base64) => {
     capturas[ladoActivo] = base64;
     if (ladoActivo === "frente") avatarMiniBase64 = await generarMiniatura(base64);
     await refrescarViewfinder();
     document.getElementById(`dot-${ladoActivo}`).style.display = "inline-block";
     document.getElementById("btn-continuar-escaneo").disabled = !capturas.frente;
-  } catch (error) { alert(error.message); }
+  });
   e.target.value = "";
+});
+
+// ---------- Previsualización + rotación antes de usar una foto ----------
+// Se usa tanto al escanear (frente/reverso) como al cambiar la foto desde
+// el formulario de edición. Siempre rota desde la imagen original (nunca
+// rota una rotación anterior) para no perder calidad en cada vuelta.
+let previewSrcOriginal = "";
+let previewRotacion = 0;
+let previewCallback = null;
+
+function abrirPreviewCaptura(file, alConfirmar) {
+  previewRotacion = 0;
+  previewCallback = alConfirmar;
+  leerComoDataUrl(file)
+    .then((dataUrl) => {
+      previewSrcOriginal = dataUrl;
+      document.getElementById("preview-captura-img").src = dataUrl;
+      document.getElementById("modal-preview-captura").style.display = "flex";
+    })
+    .catch((error) => alert(error.message));
+}
+
+async function actualizarPreviewCaptura() {
+  try {
+    const rotada = await rotarImagenDataUrl(previewSrcOriginal, previewRotacion);
+    document.getElementById("preview-captura-img").src = rotada;
+  } catch (error) { alert(error.message); }
+}
+
+function cerrarPreviewCaptura() {
+  document.getElementById("modal-preview-captura").style.display = "none";
+  previewCallback = null;
+}
+
+document.getElementById("btn-preview-rotar-izq").addEventListener("click", () => {
+  previewRotacion = (previewRotacion + 270) % 360;
+  actualizarPreviewCaptura();
+});
+document.getElementById("btn-preview-rotar-der").addEventListener("click", () => {
+  previewRotacion = (previewRotacion + 90) % 360;
+  actualizarPreviewCaptura();
+});
+document.getElementById("btn-preview-cancelar").addEventListener("click", cerrarPreviewCaptura);
+document.getElementById("btn-preview-usar").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-preview-usar");
+  btn.disabled = true;
+  try {
+    const final = await rotarImagenDataUrl(previewSrcOriginal, previewRotacion);
+    const callback = previewCallback;
+    cerrarPreviewCaptura();
+    if (callback) await callback(final);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 document.getElementById("btn-saltar-reverso").addEventListener("click", () => continuarAFormulario());
@@ -546,23 +643,41 @@ function abrirFormularioVacio() {
 
 function actualizarThumb(lado, src) {
   const el = document.getElementById(`thumb-${lado}`);
-  el.innerHTML = src ? `<img src="${src}" alt="">` : `<span>+ ${lado === "frente" ? "Frente" : "Reverso"}</span>`;
+  if (!src) {
+    el.innerHTML = `<span>+ ${lado === "frente" ? "Frente" : "Reverso"}</span>`;
+    return;
+  }
+  el.innerHTML = `<img src="${src}" alt=""><button type="button" class="thumb-eliminar" title="Eliminar foto">✕</button>`;
+  // Se vuelve a crear el botón en cada llamada (junto con el resto del
+  // innerHTML), así que no hay riesgo de acumular listeners viejos.
+  el.querySelector(".thumb-eliminar").addEventListener("click", (e) => {
+    e.stopPropagation(); // si no, el click también abriría el selector de archivo del thumb
+    capturas[lado] = "";
+    if (lado === "frente") avatarMiniBase64 = "";
+    actualizarThumb(lado, "");
+  });
 }
 
 document.querySelectorAll(".form-thumbs .thumb").forEach((thumb) => {
   thumb.addEventListener("click", () => document.getElementById(`input-thumb-${thumb.dataset.lado}`).click());
 });
-document.getElementById("input-thumb-frente").addEventListener("change", async (e) => {
-  if (!e.target.files[0]) return;
-  capturas.frente = await comprimirImagen(e.target.files[0]);
-  avatarMiniBase64 = await generarMiniatura(capturas.frente);
-  actualizarThumb("frente", capturas.frente);
+document.getElementById("input-thumb-frente").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  abrirPreviewCaptura(file, async (base64) => {
+    capturas.frente = base64;
+    avatarMiniBase64 = await generarMiniatura(base64);
+    actualizarThumb("frente", base64);
+  });
   e.target.value = "";
 });
-document.getElementById("input-thumb-reverso").addEventListener("change", async (e) => {
-  if (!e.target.files[0]) return;
-  capturas.reverso = await comprimirImagen(e.target.files[0]);
-  actualizarThumb("reverso", capturas.reverso);
+document.getElementById("input-thumb-reverso").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  abrirPreviewCaptura(file, (base64) => {
+    capturas.reverso = base64;
+    actualizarThumb("reverso", base64);
+  });
   e.target.value = "";
 });
 
@@ -695,7 +810,7 @@ async function renderMiTarjeta() {
   const referencia = miTarjetaActual();
 
   if (!referencia) {
-    cont.innerHTML = estadoVacio("💳", "Todavía no tienes una tarjeta personal.", "Edita o crea un contacto y marca \"Esta es mi tarjeta personal\" para activarla aquí.") +
+    cont.innerHTML = estadoVacio("💳", "Crea tu tarjeta digital para generar tu QR.", "Edita o crea un contacto y marca \"Esta es mi tarjeta personal\" para activarla aquí.") +
       `<button type="button" class="btn btn-block" id="btn-crear-mitarjeta">Crear mi tarjeta</button>`;
     document.getElementById("btn-crear-mitarjeta").addEventListener("click", iniciarEscaneo);
     return;
@@ -739,6 +854,19 @@ async function renderMiTarjeta() {
 
   document.getElementById("btn-compartir-mt").addEventListener("click", async () => {
     await registrarEvento(t._id, "compartido");
+    // Si el dispositivo soporta compartir archivos (la mayoría en celular),
+    // se comparte el QR como imagen real; si no, se cae al enlace por texto.
+    try {
+      const canvas = document.getElementById("qr-canvas");
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      const archivo = new File([blob], "mi-tarjeta-qr.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+        await navigator.share({ files: [archivo], title: t.nombre, text: `Te comparto mi tarjeta de presentación: ${enlace}` });
+        return;
+      }
+    } catch {
+      // Si el usuario cancela el share nativo o algo falla, se sigue con el enlace por WhatsApp.
+    }
     const mensaje = encodeURIComponent(`Te comparto mi tarjeta de presentación: ${enlace}`);
     window.open(`https://wa.me/?text=${mensaje}`, "_blank");
   });

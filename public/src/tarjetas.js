@@ -36,3 +36,15 @@ export async function invitarContacto(id) {
   if (!r.ok) throw new Error(data.error || "No se pudo generar la invitación.");
   return data;
 }
+
+// Envía una copia de una tarjeta guardada a otro usuario registrado de la
+// app (por teléfono). Devuelve status/ok/data crudos porque el llamador
+// necesita distinguir "no existe ese usuario" (404, ofrece invitar) de
+// "ya la tiene" (409) de un envío exitoso.
+export async function enviarTarjeta(id, telefono) {
+  const r = await fetch(`/api/tarjetas/${id}/enviar`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono })
+  });
+  const data = await r.json();
+  return { status: r.status, ok: r.ok, data };
+}

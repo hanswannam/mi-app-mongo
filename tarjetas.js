@@ -8,7 +8,7 @@ import { normalizarUrl } from "./src/utils/validateUrl.js";
 import { leerImagen } from "./src/utils/validateImage.js";
 import { normalizarTelefono } from "./src/utils/normalizePhone.js";
 import { obtenerSesion } from "./src/middleware/authMiddleware.js";
-import { parseObjectId, withTarjetas } from "./lib/db.js";
+import { parseObjectId, withTarjetas, withUsuarios } from "./lib/db.js";
 
 // Las fotos de frente/reverso/perfil pueden pesar varios cientos de KB cada
 // una en base64. Mandarlas completas en una lista de N tarjetas hacía que la
@@ -237,6 +237,69 @@ export async function handleGetTarjeta(request, env, id) {
     return jsonResponse(tarjeta);
   } catch (error) {
     return jsonResponse({ error: "Error al consultar la tarjeta.", message: error.message }, 500);
+  }
+}
+
+// Envía una copia independiente de una tarjeta guardada a otro usuario
+// registrado de la app (por su teléfono). No transfiere propiedad: el
+// remitente conserva su tarjeta y el destinatario recibe su propia copia
+// editable, igual que ya funciona con escaneo e invitaciones. Se guarda el
+// origen y quién la compartió como metadata del propio documento (no hay
+// una tabla de relación separada -- el modelo es Mongo, no SQL).
+export async function handleEnviarTarjeta(request, env, id) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const objectId = parseObjectId(id);
+  if (!objectId) return jsonResponse({ error: "ID de tarjeta inválido." }, 400);
+
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
+
+  const telefonoReceptor = normalizarTelefono(body.telefono);
+  if (!telefonoReceptor) return jsonResponse({ error: "Ingresa un número de teléfono válido." }, 400);
+
+  try {
+    const tarjeta = await withTarjetas(env, (collection) => collection.findOne({ _id: objectId }));
+    if (!tarjeta) return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
+    // Solo se puede compartir una tarjeta que uno mismo tiene guardada.
+    if (tarjeta.propietarioTelefono !== sesion.telefono) {
+      return jsonResponse({ error: "Solo puedes enviar tarjetas que tienes guardadas." }, 403);
+    }
+    if (telefonoReceptor === sesion.telefono) {
+      return jsonResponse({ error: "No puedes enviarte una tarjeta a ti mismo." }, 400);
+    }
+
+    const receptor = await withUsuarios(env, (collection) => collection.findOne({ telefono: telefonoReceptor }));
+    if (!receptor) {
+      return jsonResponse({ error: "No existe un usuario registrado con ese número." }, 404);
+    }
+
+    const duplicada = await buscarTarjetaDuplicada(env, telefonoReceptor, tarjeta.telefonoNormalizado);
+    if (duplicada) {
+      return jsonResponse({ error: "Este usuario ya tiene esta tarjeta guardada." }, 409);
+    }
+
+    const ahora = new Date();
+    const copia = {
+      propietarioTelefono: telefonoReceptor,
+      nombre: tarjeta.nombre, empresa: tarjeta.empresa, cargo: tarjeta.cargo,
+      telefono: tarjeta.telefono, telefonoNormalizado: tarjeta.telefonoNormalizado,
+      email: tarjeta.email, sitioWeb: tarjeta.sitioWeb, notas: "",
+      facebook: tarjeta.facebook, instagram: tarjeta.instagram, linkedin: tarjeta.linkedin,
+      tiktok: tarjeta.tiktok, twitter: tarjeta.twitter, categoria: tarjeta.categoria,
+      etiqueta: "", favorito: false, esMiTarjeta: false,
+      imagenFrente: tarjeta.imagenFrente || "", imagenReverso: tarjeta.imagenReverso || "",
+      fotoPerfil: tarjeta.fotoPerfil || "", avatarMini: tarjeta.avatarMini || "",
+      vistas: 0, compartidos: 0, descargas: 0,
+      creadoEn: ahora, actualizadoEn: ahora, editadoPorTelefono: telefonoReceptor,
+      origen: "compartida", compartidaPorTelefono: sesion.telefono, compartidaEn: ahora
+    };
+    const insertedId = await withTarjetas(env, (collection) => collection.insertOne(copia).then((r) => r.insertedId));
+
+    return jsonResponse({ ok: true, _id: insertedId, receptorNombre: receptor.nombre }, 201);
+  } catch (error) {
+    return jsonResponse({ error: "Error al enviar la tarjeta.", message: error.message }, 500);
   }
 }
 

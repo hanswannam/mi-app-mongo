@@ -9,7 +9,8 @@ import {
   handleUpdateTarjeta,
   handleDirectorio,
   handleGetTarjeta,
-  handleTarjetaPublica
+  handleTarjetaPublica,
+  handleEnviarTarjeta
 } from "./tarjetas.js";
 import { handleCrearInvitacion, handleVerInvitacion, handleActivarInvitacion } from "./invitaciones.js";
 import {
@@ -47,6 +48,9 @@ export async function enrutar(request, env) {
 
   const matchInvitar = pathname.match(/^\/api\/tarjetas\/([^/]+)\/invitar$/);
   if (matchInvitar && metodo === "POST") return handleCrearInvitacion(request, env, decodeURIComponent(matchInvitar[1]));
+
+  const matchEnviar = pathname.match(/^\/api\/tarjetas\/([^/]+)\/enviar$/);
+  if (matchEnviar && metodo === "POST") return handleEnviarTarjeta(request, env, decodeURIComponent(matchEnviar[1]));
 
   const matchVerInvitacion = pathname.match(/^\/api\/invitaciones\/([^/]+)$/);
   if (matchVerInvitacion && metodo === "GET") return handleVerInvitacion(env, decodeURIComponent(matchVerInvitacion[1]));
