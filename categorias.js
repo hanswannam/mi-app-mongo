@@ -4,7 +4,7 @@ import { jsonResponse } from "./src/utils/response.js";
 import { errorResponse } from "./src/utils/errorResponse.js";
 import { parseJson } from "./src/utils/parseJson.js";
 import { texto } from "./src/utils/strings.js";
-import { obtenerSesion, requerirAdmin } from "./lib/sesion.js";
+import { obtenerSesion, requerirAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCategorias } from "./lib/db.js";
 
 const CATEGORIAS_DEFECTO = [

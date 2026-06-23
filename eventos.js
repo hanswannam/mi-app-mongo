@@ -5,7 +5,7 @@ import { errorResponse } from "./src/utils/errorResponse.js";
 import { parseJson } from "./src/utils/parseJson.js";
 import { texto } from "./src/utils/strings.js";
 import { formatDateYYYYMMDD } from "./src/utils/formatDate.js";
-import { obtenerSesion } from "./lib/sesion.js";
+import { obtenerSesion } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withUsuarios, withTarjetas, withEventos } from "./lib/db.js";
 
 const TIPOS_EVENTO = ["vista", "compartido", "descarga"];

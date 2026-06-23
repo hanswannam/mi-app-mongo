@@ -7,7 +7,7 @@ import { texto } from "./src/utils/strings.js";
 import { normalizarUrl } from "./src/utils/validateUrl.js";
 import { leerImagen } from "./src/utils/validateImage.js";
 import { normalizarTelefono } from "./src/utils/normalizePhone.js";
-import { obtenerSesion } from "./lib/sesion.js";
+import { obtenerSesion } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withTarjetas } from "./lib/db.js";
 
 // Las fotos de frente/reverso/perfil pueden pesar varios cientos de KB cada

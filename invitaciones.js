@@ -4,7 +4,8 @@ import { parseJson } from "./src/utils/parseJson.js";
 import { texto } from "./src/utils/strings.js";
 import { soloDigitos, normalizarTelefono } from "./src/utils/normalizePhone.js";
 import { bytesAHex, generarSalt, hashConSalt, firmarSesion } from "./lib/crypto.js";
-import { SESION_DURACION_MS, cookieSesion, obtenerConfig, obtenerSesion } from "./lib/sesion.js";
+import { SESION_DURACION_MS, cookieSesion, obtenerConfig } from "./lib/sesion.js";
+import { obtenerSesion } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withUsuarios, withTarjetas, withInvitaciones } from "./lib/db.js";
 import { infoUsuarioPublica } from "./usuarios.js";
 

@@ -8,7 +8,7 @@ import { parseJson } from "./src/utils/parseJson.js";
 import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { generarSalt, hashConSalt } from "./lib/crypto.js";
-import { requerirAdmin } from "./lib/sesion.js";
+import { requerirAdmin } from "./src/middleware/authMiddleware.js";
 import { withUsuarios, withTarjetas, withEventos, withInvitaciones } from "./lib/db.js";
 
 export async function handleListUsuarios(request, env) {

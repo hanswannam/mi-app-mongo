@@ -5,7 +5,8 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { leerImagen } from "./src/utils/validateImage.js";
 import { generarSalt, hashConSalt, firmarSesion } from "./lib/crypto.js";
-import { SESION_DURACION_MS, cookieSesion, obtenerConfig, obtenerSesion } from "./lib/sesion.js";
+import { SESION_DURACION_MS, cookieSesion, obtenerConfig } from "./lib/sesion.js";
+import { obtenerSesion } from "./src/middleware/authMiddleware.js";
 import { withUsuarios, withTarjetas } from "./lib/db.js";
 
 export function infoUsuarioPublica(usuario) {

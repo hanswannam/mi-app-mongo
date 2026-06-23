@@ -3,7 +3,7 @@
 import { jsonResponse } from "./src/utils/response.js";
 import { errorResponse } from "./src/utils/errorResponse.js";
 import { parseJson } from "./src/utils/parseJson.js";
-import { obtenerSesion } from "./lib/sesion.js";
+import { obtenerSesion } from "./src/middleware/authMiddleware.js";
 import { withUsuarios } from "./lib/db.js";
 
 export async function handleOcr(request, env) {
