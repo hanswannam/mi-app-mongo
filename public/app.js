@@ -3,6 +3,9 @@ import { normalizarUrl, whatsappUrl, urlRedSocial } from "./src/utils/contactLin
 import { filtrarLista } from "./src/utils/listFilters.js";
 import { fetchConLimite, mensajeDeError } from "./src/utils/network.js";
 import { detectarOrientacion, generarMiniatura, comprimirImagen, recortarYComprimirCuadrado } from "./src/utils/imageProcessing.js";
+import { REDES, filaContacto } from "./src/templates/contactRow.js";
+import { estadoVacio } from "./src/templates/emptyState.js";
+import { dibujarSparkline } from "./src/templates/sparkline.js";
 
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
 // necesitar conectar el teléfono a una computadora). Si algo falla antes de
@@ -35,14 +38,6 @@ let detalleActualId = null;
 let detalleActualData = null;
 let detalleEsDirectorio = false;
 let detalleFlipped = false;
-
-const REDES = [
-  { campo: "facebook", etiqueta: "Facebook", glyph: "📘", base: "https://facebook.com/" },
-  { campo: "instagram", etiqueta: "Instagram", glyph: "📸", base: "https://instagram.com/" },
-  { campo: "linkedin", etiqueta: "LinkedIn", glyph: "💼", base: "https://linkedin.com/in/" },
-  { campo: "tiktok", etiqueta: "TikTok", glyph: "🎵", base: "https://tiktok.com/@" },
-  { campo: "twitter", etiqueta: "X", glyph: "✖️", base: "https://x.com/" }
-];
 
 // ---------- Tema oscuro ----------
 function aplicarTema(oscuro) {
@@ -257,35 +252,6 @@ async function cargarDirectorio() {
     console.error("cargarDirectorio:", error);
     directorio = [];
   }
-}
-
-function accionesRapidas(c) {
-  const botones = [];
-  const wa = whatsappUrl(c.telefono);
-  if (wa) botones.push(`<a href="${wa}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="icon-btn" title="WhatsApp">💬</a>`);
-  if (c.telefono) botones.push(`<a href="tel:${escapeHtml(c.telefono)}" onclick="event.stopPropagation()" class="icon-btn" title="Llamar">📞</a>`);
-  if (c.email) botones.push(`<a href="mailto:${escapeHtml(c.email)}" onclick="event.stopPropagation()" class="icon-btn" title="Correo">✉️</a>`);
-  return botones.join("");
-}
-
-function filaContacto(c, esDirectorio) {
-  const meta = [c.cargo, c.empresa].filter(Boolean).join(" · ");
-  const fuenteAvatar = c.avatarMini || c.fotoPerfil || c.imagenFrente;
-  const avatar = fuenteAvatar ? `<img src="${fuenteAvatar}" alt="">` : iniciales(c.nombre);
-  return `
-    <div class="contact-row" data-id="${c._id}" data-directorio="${esDirectorio ? "1" : "0"}">
-      <div class="avatar">${avatar}</div>
-      <div class="contact-info">
-        <div class="nombre">${escapeHtml(c.nombre)} ${c.favorito ? '<span class="star">★</span>' : ""}</div>
-        <div class="meta">${escapeHtml(meta || "Sin empresa")}</div>
-      </div>
-      <div class="quick-actions">${accionesRapidas(c)}</div>
-    </div>
-  `;
-}
-
-function estadoVacio(glyph, titulo, texto) {
-  return `<div class="empty-state"><div class="glyph">${glyph}</div><h3>${titulo}</h3><p>${texto}</p></div>`;
 }
 
 function adjuntarClicksFila(contenedor) {
@@ -808,14 +774,6 @@ async function renderMiTarjeta() {
 }
 
 // ---------- Estadísticas ----------
-function dibujarSparkline(serie) {
-  if (serie.length === 0) return '<p class="placeholder-text">Todavía no hay vistas registradas.</p>';
-  const max = Math.max(...serie.map((p) => p.conteo), 1);
-  const w = 280, h = 70, paso = w / Math.max(serie.length - 1, 1);
-  const puntos = serie.map((p, i) => `${i * paso},${h - (p.conteo / max) * (h - 10) - 5}`).join(" ");
-  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:80px;"><polyline points="${puntos}" fill="none" stroke="#FF6B00" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-}
-
 async function cargarEstadisticas(id) {
   const cont = document.getElementById("estadisticas-contenido");
   cont.innerHTML = '<p class="placeholder-text">Cargando...</p>';
