@@ -7,6 +7,7 @@ import { REDES, filaContacto } from "./src/templates/contactRow.js";
 import { estadoVacio } from "./src/templates/emptyState.js";
 import { dibujarSparkline } from "./src/templates/sparkline.js";
 import { consultarSesionActual, iniciarSesion, registrarUsuario, cerrarSesion, solicitarRecuperacion } from "./src/auth.js";
+import { actualizarFotoPerfil, actualizarCuenta, guardarApiKey } from "./src/perfil.js";
 
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
 // necesitar conectar el teléfono a una computadora). Si algo falla antes de
@@ -841,10 +842,7 @@ document.getElementById("input-foto-perfil").addEventListener("change", async (e
     const base64 = await recortarYComprimirCuadrado(file);
     const dpiActual = await pedirConfirmacionDpi("Ingresa tu DPI actual para guardar la nueva foto.");
     if (!dpiActual) return;
-    const r = await fetchConLimite("/api/usuario", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fotoPerfil: base64, dpiActual }) });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudo actualizar la foto.");
-    usuarioActual = data;
+    usuarioActual = await actualizarFotoPerfil(base64, dpiActual);
     actualizarAvatarPerfil();
   } catch (error) { alert(mensajeDeError(error)); }
   e.target.value = "";
@@ -855,13 +853,7 @@ document.getElementById("form-cuenta").addEventListener("submit", async (e) => {
   const form = e.target, msg = document.getElementById("cuenta-message");
   msg.innerHTML = "";
   try {
-    const r = await fetch("/api/usuario", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre: form.nombre.value, telefono: form.telefono.value, dpiNuevo: form.dpiNuevo.value, dpiActual: form.dpiActual.value })
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudo actualizar la cuenta.");
-    usuarioActual = data;
+    usuarioActual = await actualizarCuenta(form.nombre.value, form.telefono.value, form.dpiNuevo.value, form.dpiActual.value);
     form.dpiNuevo.value = ""; form.dpiActual.value = "";
     document.getElementById("saludo-nombre").textContent = (usuarioActual.nombre || "").split(" ")[0];
     document.getElementById("perfil-nombre-display").textContent = usuarioActual.nombre;
@@ -872,9 +864,7 @@ document.getElementById("form-cuenta").addEventListener("submit", async (e) => {
 document.getElementById("btn-guardar-key").addEventListener("click", async () => {
   const input = document.getElementById("input-openai-key");
   try {
-    const r = await fetch("/api/usuario/openai-key", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ openaiApiKey: input.value }) });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudo guardar la API key.");
+    const data = await guardarApiKey(input.value);
     usuarioActual.tieneApiKey = data.tieneApiKey;
     actualizarEstadoApiKey();
     input.value = "";
