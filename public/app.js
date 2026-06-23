@@ -6,6 +6,7 @@ import { detectarOrientacion, generarMiniatura, comprimirImagen, recortarYCompri
 import { REDES, filaContacto } from "./src/templates/contactRow.js";
 import { estadoVacio } from "./src/templates/emptyState.js";
 import { dibujarSparkline } from "./src/templates/sparkline.js";
+import { consultarSesionActual, iniciarSesion, registrarUsuario, cerrarSesion, solicitarRecuperacion } from "./src/auth.js";
 
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
 // necesitar conectar el teléfono a una computadora). Si algo falla antes de
@@ -100,8 +101,8 @@ function actualizarEstadoApiKey() {
 
 async function iniciar() {
   try {
-    const r = await fetchConLimite("/api/auth/yo", {}, 12000);
-    if (r.ok) { usuarioActual = await r.json(); mostrarApp(); } else { mostrarAuth(); }
+    usuarioActual = await consultarSesionActual();
+    if (usuarioActual) mostrarApp(); else mostrarAuth();
   } catch (error) {
     console.error("iniciar:", error);
     mostrarAuth();
@@ -125,10 +126,8 @@ document.getElementById("form-login").addEventListener("submit", async (e) => {
   const form = e.target, msg = document.getElementById("auth-message");
   msg.innerHTML = "";
   try {
-    const r = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: form.telefono.value, dpi: form.dpi.value }) });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudo iniciar sesión.");
-    usuarioActual = data; mostrarApp();
+    usuarioActual = await iniciarSesion(form.telefono.value, form.dpi.value);
+    mostrarApp();
   } catch (error) { msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`; }
 });
 
@@ -137,10 +136,8 @@ document.getElementById("form-registro").addEventListener("submit", async (e) =>
   const form = e.target, msg = document.getElementById("auth-message");
   msg.innerHTML = "";
   try {
-    const r = await fetch("/api/auth/registro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: form.nombre.value, telefono: form.telefono.value, dpi: form.dpi.value }) });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudo crear la cuenta.");
-    usuarioActual = data; mostrarApp();
+    usuarioActual = await registrarUsuario(form.nombre.value, form.telefono.value, form.dpi.value);
+    mostrarApp();
   } catch (error) { msg.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`; }
 });
 
@@ -164,9 +161,7 @@ document.getElementById("form-recuperar").addEventListener("submit", async (e) =
   const msg = document.getElementById("auth-message");
   msg.innerHTML = "";
   try {
-    const r = await fetchConLimite(`/api/auth/recuperar/${encodeURIComponent(telefono)}`);
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudo procesar la solicitud.");
+    const data = await solicitarRecuperacion(telefono);
     const mensaje = `Hola, olvidé el acceso a mi cuenta de Billetera Virtual. Mi número registrado es ${telefono}. ¿Me ayudas a restablecerlo?`;
     const wa = whatsappUrl(data.telefonoSoporte, mensaje);
     if (wa) window.open(wa, "_blank");
@@ -190,7 +185,7 @@ function reiniciarEstadoApp() {
 }
 
 document.getElementById("btn-logout").addEventListener("click", async () => {
-  await fetch("/api/auth/logout", { method: "POST" });
+  await cerrarSesion();
   usuarioActual = null;
   reiniciarEstadoApp();
   mostrarAuth();
