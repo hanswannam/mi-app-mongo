@@ -8,6 +8,8 @@ import { estadoVacio } from "./src/templates/emptyState.js";
 import { dibujarSparkline } from "./src/templates/sparkline.js";
 import { consultarSesionActual, iniciarSesion, registrarUsuario, cerrarSesion, solicitarRecuperacion } from "./src/auth.js";
 import { actualizarFotoPerfil, actualizarCuenta, guardarApiKey } from "./src/perfil.js";
+import { escanearImagen } from "./src/ocr.js";
+import { guardarTarjeta } from "./src/tarjetas.js";
 
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
 // necesitar conectar el teléfono a una computadora). Si algo falla antes de
@@ -579,9 +581,7 @@ async function ejecutarOcr(imagen, silencioso) {
   const msg = document.getElementById("form-message");
   if (!silencioso) msg.innerHTML = '<p class="message success">Escaneando...</p>';
   try {
-    const r = await fetch("/api/ocr", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imagen }) });
-    const datos = await r.json();
-    if (!r.ok) throw new Error(datos.error || "No se pudo escanear la imagen.");
+    const datos = await escanearImagen(imagen);
     const form = document.getElementById("form-contacto");
     if (datos.nombre) form.nombre.value = datos.nombre;
     if (datos.empresa) form.empresa.value = datos.empresa;
@@ -651,16 +651,14 @@ async function guardarContacto(idForzado) {
   const idDestino = idForzado || editandoId;
   btn.disabled = true; btn.textContent = "Guardando...";
   try {
-    const url = idDestino ? `/api/tarjetas/${idDestino}` : "/api/tarjetas";
-    const r = await fetch(url, { method: idDestino ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) });
-    if (r.status === 401) { mostrarAuth(); return; }
-    const resultado = await r.json();
+    const { status, ok, data: resultado } = await guardarTarjeta(datos, idDestino);
+    if (status === 401) { mostrarAuth(); return; }
 
-    if (r.status === 409 && resultado.duplicado) {
+    if (status === 409 && resultado.duplicado) {
       mostrarAvisoDuplicado(resultado.error, resultado.duplicado, datos);
       return;
     }
-    if (!r.ok) throw new Error(resultado.error || `Error ${r.status}`);
+    if (!ok) throw new Error(resultado.error || `Error ${status}`);
 
     await cargarContactos();
     mostrarPantalla("contactos");
