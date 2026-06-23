@@ -25,7 +25,6 @@ export const MODULOS = [
 
 export const ACCIONES = ["ver", "crear", "editar", "eliminar", "exportar", "activar"];
 
-const TODO = new Set(ACCIONES);
 const set = (...acciones) => new Set(acciones);
 
 // Matriz de permisos por defecto. admin_capitulo y networker no tienen
@@ -34,6 +33,7 @@ const MATRIZ_ROLES = {
   admin_capitulo: {
     dashboard: set("ver"),
     capitulos: set("ver"),
+    usuarios: set("ver", "crear", "editar", "activar"),
     networkers: set("ver", "crear", "editar", "activar", "exportar"),
     tarjetas: set("ver"),
     esferas: set("ver", "crear", "editar", "eliminar"),
@@ -97,6 +97,27 @@ export function permiteRol(rol, moduloKey, accion) {
   const matriz = matrizDeRol(rol);
   if (matriz === null) return true;
   return Boolean(matriz[moduloKey]?.has(accion));
+}
+
+// Qué módulos ve un rol por defecto (capa 1 solamente) -- para la vista
+// previa "este rol verá: ..." al crear un usuario desde el módulo Usuarios.
+export function modulosConVistaPorRol(rol) {
+  const matriz = matrizDeRol(rol);
+  if (matriz === null) return [...MODULOS];
+  return MODULOS.filter((m) => matriz[m]?.has("ver"));
+}
+
+// Quién puede crear/editar usuarios con qué rol: superadmin puede asignar
+// cualquier rol; un admin_capitulo solo puede crear sub-admins de su propio
+// capítulo o networkers/invitados -- nunca otro superadmin, ni tocar
+// capítulos ajenos (eso ya lo filtra requerirAdminCapitulo aparte).
+const ROLES_ASIGNABLES_POR_SUPERADMIN = ["superadmin", "admin_capitulo", "networker", "invitado_especial", "visitante"];
+const ROLES_ASIGNABLES_POR_ADMIN_CAPITULO = ["admin_capitulo", "networker", "invitado_especial"];
+
+export function rolesQuePuedeAsignar(rolCreador) {
+  if (esSuperAdminRol(rolCreador)) return ROLES_ASIGNABLES_POR_SUPERADMIN;
+  if (rolCreador === "admin_capitulo") return ROLES_ASIGNABLES_POR_ADMIN_CAPITULO;
+  return [];
 }
 
 const withCapituloModulos = (env, fn) => withCollection(env, "capituloModulos", fn);

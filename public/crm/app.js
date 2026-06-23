@@ -15,6 +15,7 @@ let misPermisos = {}; // { moduloKey: ["ver","crear",...] }, ver cargarMisPermis
 const SECCIONES = [
   { id: "dashboard", label: "Dashboard", icono: "📊" },
   { id: "capitulos", label: "Capítulos", icono: "🏷️", soloSuperAdmin: true },
+  { id: "usuarios", label: "Usuarios", icono: "🧑‍💼" },
   { id: "networkers", label: "Networkers", icono: "👥" },
   { id: "tarjetas", label: "Tarjetas Digitales", icono: "💳" },
   { id: "esferas", label: "Esferas", icono: "🧭" },
@@ -266,13 +267,14 @@ async function renderVista() {
   cerrarPanel();
   const cont = document.getElementById("contenido");
   cont.innerHTML = "";
-  if (!capituloIdActivo && vistaActiva !== "capitulos") {
+  if (!capituloIdActivo && vistaActiva !== "capitulos" && vistaActiva !== "usuarios") {
     cont.innerHTML = `<div class="estado-vacio"><div class="icono">🏷️</div>No hay un capítulo activo. ${esSuperAdmin() ? "Crea uno en la sección Capítulos." : "Contacta a tu administrador."}</div>`;
     return;
   }
   const renderers = {
     dashboard: renderDashboard,
     capitulos: renderCapitulos,
+    usuarios: renderUsuarios,
     networkers: renderNetworkers,
     tarjetas: renderTarjetas,
     esferas: renderEsferas,
@@ -388,6 +390,135 @@ function abrirFormCapitulo(capitulo) {
     const msg = document.getElementById("form-cap-mensaje");
     const ruta = esEdicion ? `/api/capitulos/${capitulo._id}` : "/api/capitulos";
     const { ok, data } = await api(ruta, { method: esEdicion ? "PUT" : "POST", body: JSON.stringify(cuerpo) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    cerrarPanel();
+    await renderVista();
+  });
+}
+
+// ---------- Usuarios del sistema ----------
+// "networker" en este contexto es solo un atajo hacia la pantalla
+// Networkers (que ya administra los campos de membresía BNI); aquí el
+// foco es el rol y el acceso, no el perfil BNI completo.
+const ETIQUETA_ROL = {
+  superadmin: "Super Admin", admin: "Super Admin", admin_capitulo: "Administrador de capítulo",
+  networker: "Networker", invitado_especial: "Invitado especial", visitante: "Visitante"
+};
+
+let viendoUsuariosSistema = false;
+let opcionesRolesCache = [];
+
+async function renderUsuarios(cont) {
+  const puedeCrear = puede("usuarios", "crear");
+  const mostrarToggleSistema = esSuperAdmin();
+
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Usuarios</div><div class="vista-sub">Cuentas con acceso al sistema y sus roles</div></div>
+    ${puedeCrear ? '<button class="btn-primario" id="btn-nuevo-usuario">+ Nuevo usuario</button>' : ""}</div>
+    ${mostrarToggleSistema ? `<div class="barra-busqueda" style="margin-bottom:14px;">
+      <button class="btn-secundario" id="btn-toggle-usuarios" style="flex:none;">
+        ${viendoUsuariosSistema ? "Ver usuarios del capítulo actual" : "Ver usuarios del sistema (sin capítulo)"}
+      </button>
+    </div>` : ""}
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Nombre</th><th>Teléfono</th><th>Rol</th><th>Estado</th><th></th></tr></thead><tbody id="tabla-usuarios">Cargando…</tbody></table></div>`;
+
+  if (puedeCrear) document.getElementById("btn-nuevo-usuario").addEventListener("click", () => abrirFormUsuario(null));
+  if (mostrarToggleSistema) {
+    document.getElementById("btn-toggle-usuarios").addEventListener("click", async () => {
+      viendoUsuariosSistema = !viendoUsuariosSistema;
+      await renderVista();
+    });
+  }
+
+  const ruta = viendoUsuariosSistema && esSuperAdmin() ? "/api/usuarios-sistema?sistema=true" : conCapitulo("/api/usuarios-sistema");
+  const { ok, data } = await api(ruta);
+  const tbody = document.getElementById("tabla-usuarios");
+  if (!ok) { tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">${escapeHtml(data.error || "No se pudo cargar.")}</td></tr>`; return; }
+  if (data.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">No hay usuarios para mostrar.</td></tr>`; return; }
+
+  tbody.innerHTML = data.map((u) => `
+    <tr data-telefono="${u.telefono}">
+      <td style="cursor:pointer;"><strong>${escapeHtml(u.nombre)}</strong></td>
+      <td>${escapeHtml(u.telefono)}</td>
+      <td>${pill(ETIQUETA_ROL[u.rol] || u.rol, u.rol === "admin_capitulo" || esRolDeSistema(u.rol) ? "activo" : "invitado")}</td>
+      <td>${u.estado === "suspendido" ? pill("suspendido", "suspendido") : pill("activo", "activo")}</td>
+      <td style="text-align:right;">
+        ${puede("usuarios", "activar") ? `<button class="btn-secundario btn-toggle-estado-usuario" data-estado="${u.estado || "activo"}" style="padding:6px 12px;font-size:12px;">${u.estado === "suspendido" ? "Reactivar" : "Suspender"}</button>` : ""}
+      </td>
+    </tr>`).join("");
+
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    tr.querySelector("td").addEventListener("click", () => abrirFormUsuario(data.find((u) => u.telefono === tr.dataset.telefono)));
+    const btnEstado = tr.querySelector(".btn-toggle-estado-usuario");
+    if (btnEstado) {
+      btnEstado.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const nuevoEstado = btnEstado.dataset.estado === "suspendido" ? "activo" : "suspendido";
+        const { ok: okEstado, data: dataEstado } = await api(`/api/usuarios-sistema/${tr.dataset.telefono}/estado`, {
+          method: "PATCH", body: JSON.stringify({ estado: nuevoEstado })
+        });
+        if (!okEstado) { alert(dataEstado.error || "No se pudo actualizar."); return; }
+        await renderVista();
+      });
+    }
+  });
+}
+
+function esRolDeSistema(rol) {
+  return rol === "admin" || rol === "superadmin";
+}
+
+async function abrirFormUsuario(usuario) {
+  const esEdicion = Boolean(usuario);
+  if (opcionesRolesCache.length === 0) {
+    const { ok, data } = await api("/api/usuarios-sistema/opciones-roles");
+    opcionesRolesCache = ok && Array.isArray(data) ? data : [];
+  }
+
+  abrirPanel(esEdicion ? "Editar usuario" : "Nuevo usuario", `
+    <div class="campo"><label>Teléfono</label><input id="us-telefono" value="${escapeHtml(usuario?.telefono || "")}" ${esEdicion ? "disabled" : ""}></div>
+    <div class="campo"><label>Nombre</label><input id="us-nombre" value="${escapeHtml(usuario?.nombre || "")}"></div>
+    <div class="campo"><label>Rol</label>
+      <select id="us-rol">${opcionesRolesCache.map((o) => `<option value="${o.rol}" ${usuario?.rol === o.rol ? "selected" : ""}>${escapeHtml(ETIQUETA_ROL[o.rol] || o.rol)}</option>`).join("")}</select>
+    </div>
+    ${esSuperAdmin() ? `<div class="campo" id="campo-capitulo-usuario"><label>Capítulo</label>
+      <select id="us-capitulo">${capitulosDisponibles.map((c) => `<option value="${c._id}" ${(usuario?.capituloId || capituloIdActivo) === c._id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("")}</select>
+    </div>` : ""}
+    <div class="campo">
+      <label>Este rol vera:</label>
+      <div class="etiquetas-faltantes" id="us-preview-modulos"></div>
+    </div>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-usuario">Guardar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    ${!esEdicion ? '<p class="form-mensaje">Si el teléfono no tiene cuenta todavía, la persona la activará registrándose en la app con este mismo número.</p>' : ""}
+    <p class="form-mensaje" id="form-us-mensaje"></p>
+  `);
+
+  const actualizarPreview = () => {
+    const rolElegido = document.getElementById("us-rol").value;
+    const modulos = opcionesRolesCache.find((o) => o.rol === rolElegido)?.modulos || [];
+    document.getElementById("us-preview-modulos").innerHTML = modulos.length === 0
+      ? '<span class="etiqueta-ok">Sin módulos visibles</span>'
+      : modulos.map((m) => `<span class="etiqueta-ok">${escapeHtml(NOMBRES_MODULO[m] || m)}</span>`).join("");
+    const campoCapitulo = document.getElementById("campo-capitulo-usuario");
+    if (campoCapitulo) campoCapitulo.style.display = (rolElegido === "admin" || rolElegido === "superadmin") ? "none" : "block";
+  };
+  document.getElementById("us-rol").addEventListener("change", actualizarPreview);
+  actualizarPreview();
+
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("btn-guardar-usuario").addEventListener("click", async () => {
+    const telefono = document.getElementById("us-telefono").value.trim();
+    const rol = document.getElementById("us-rol").value;
+    const cuerpo = {
+      nombre: document.getElementById("us-nombre").value.trim(),
+      rol,
+      capituloId: document.getElementById("us-capitulo")?.value || capituloIdActivo
+    };
+    const msg = document.getElementById("form-us-mensaje");
+    if (!telefono) { msg.className = "form-mensaje error"; msg.textContent = "El teléfono es obligatorio."; return; }
+    const { ok, data } = await api(`/api/usuarios-sistema/${telefono}`, { method: "PUT", body: JSON.stringify(cuerpo) });
     if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
     cerrarPanel();
     await renderVista();

@@ -86,6 +86,12 @@ import {
   handleListPermisosUsuario,
   handleGuardarPermisoUsuario
 } from "./permisos.js";
+import {
+  handleListUsuariosSistema,
+  handleOpcionesRoles,
+  handleGuardarUsuarioSistema,
+  handleCambiarEstadoUsuarioSistema
+} from "./usuariosSistema.js";
 
 export async function enrutar(request, env) {
   const url = new URL(request.url);
@@ -243,6 +249,17 @@ export async function enrutar(request, env) {
 
   if (pathname === "/api/directorio-publico" && metodo === "GET") return handleDirectorioPublico(request, env);
   if (pathname === "/api/networkers-tarjetas" && metodo === "GET") return handleNetworkersConTarjetas(request, env);
+
+  if (pathname === "/api/usuarios-sistema" && metodo === "GET") return handleListUsuariosSistema(request, env);
+  if (pathname === "/api/usuarios-sistema/opciones-roles" && metodo === "GET") return handleOpcionesRoles(request, env);
+
+  const matchUsuarioSistemaEstado = pathname.match(/^\/api\/usuarios-sistema\/([^/]+)\/estado$/);
+  if (matchUsuarioSistemaEstado && metodo === "PATCH") {
+    return handleCambiarEstadoUsuarioSistema(request, env, decodeURIComponent(matchUsuarioSistemaEstado[1]));
+  }
+
+  const matchUsuarioSistema = pathname.match(/^\/api\/usuarios-sistema\/([^/]+)$/);
+  if (matchUsuarioSistema && metodo === "PUT") return handleGuardarUsuarioSistema(request, env, decodeURIComponent(matchUsuarioSistema[1]));
 
   return env.ASSETS.fetch(request);
 }
