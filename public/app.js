@@ -10,6 +10,7 @@ import { consultarSesionActual, iniciarSesion, registrarUsuario, cerrarSesion, s
 import { actualizarFotoPerfil, actualizarCuenta, guardarApiKey } from "./src/perfil.js";
 import { escanearImagen } from "./src/ocr.js";
 import { guardarTarjeta, obtenerTarjetas, obtenerDirectorio, obtenerTarjeta, invitarContacto } from "./src/tarjetas.js";
+import { registrarEvento, obtenerEstadisticas } from "./src/eventos.js";
 
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
 // necesitar conectar el teléfono a una computadora). Si algo falla antes de
@@ -689,10 +690,6 @@ function miTarjetaActual() {
   return contactos.find((c) => c.esMiTarjeta);
 }
 
-async function registrarEvento(id, tipo) {
-  try { await fetch(`/api/eventos-tarjeta/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipo }) }); } catch {}
-}
-
 async function renderMiTarjeta() {
   const cont = document.getElementById("mitarjeta-contenido");
   const referencia = miTarjetaActual();
@@ -707,8 +704,7 @@ async function renderMiTarjeta() {
   // La lista solo trae una miniatura; aquí se necesita la foto completa.
   let t = referencia;
   try {
-    const r = await fetchConLimite(`/api/tarjetas/${referencia._id}`, { cache: "no-store" });
-    if (r.ok) t = await r.json();
+    t = await obtenerTarjeta(referencia._id);
   } catch {
     // Si falla, se usa la versión liviana de la lista (sin foto completa) para no dejar la pantalla en blanco.
   }
@@ -768,9 +764,7 @@ async function cargarEstadisticas(id) {
   const cont = document.getElementById("estadisticas-contenido");
   cont.innerHTML = '<p class="placeholder-text">Cargando...</p>';
   try {
-    const r = await fetchConLimite(`/api/tarjetas/${id}/estadisticas`);
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudieron cargar las estadísticas.");
+    const data = await obtenerEstadisticas(id);
 
     const iconos = { vista: "👁️", compartido: "↗️", descarga: "⬇️" };
     const actividad = data.recientes.length
