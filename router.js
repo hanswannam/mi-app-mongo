@@ -30,7 +30,8 @@ import {
   handleListNetworkers,
   handleObtenerNetworker,
   handleGuardarNetworker,
-  handleDirectorioPublico
+  handleDirectorioPublico,
+  handleNetworkersConTarjetas
 } from "./networkers.js";
 import {
   handleListEsferas,
@@ -241,6 +242,7 @@ export async function enrutar(request, env) {
   if (matchPermisosUsuario && metodo === "PUT") return handleGuardarPermisoUsuario(request, env, decodeURIComponent(matchPermisosUsuario[1]));
 
   if (pathname === "/api/directorio-publico" && metodo === "GET") return handleDirectorioPublico(request, env);
+  if (pathname === "/api/networkers-tarjetas" && metodo === "GET") return handleNetworkersConTarjetas(request, env);
 
   return env.ASSETS.fetch(request);
 }

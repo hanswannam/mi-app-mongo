@@ -73,6 +73,62 @@ async function conTarjetaPublica(env, networkers) {
   return networkers.map((n) => ({ ...n, tarjetaPublicaId: tarjetaPorTelefono.get(n.telefono) || null }));
 }
 
+// El vínculo entre una tarjeta y un networker ya existe por identidad
+// (tarjeta.propietarioTelefono === networker.telefono); esto solo lo hace
+// visible en el CRM, mostrando para cada networker del capítulo si su
+// tarjeta personal está configurada y con qué estadísticas, en vez de
+// mandar a la persona a la PWA a buscarlo a ciegas.
+export async function handleNetworkersConTarjetas(request, env) {
+  const denegado = await requerirModulo(request, env, "tarjetas", "ver");
+  if (denegado) return denegado;
+
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const url = new URL(request.url);
+  const capituloId = esSuperAdmin(sesion) ? url.searchParams.get("capituloId") : sesion.capituloId;
+  if (!capituloId) return jsonResponse({ error: "Falta indicar el capítulo." }, 400);
+
+  try {
+    const networkers = await withUsuarios(env, (collection) =>
+      collection
+        .find({ capituloId, rol: "networker" }, { projection: { telefono: 1, nombre: 1, empresa: 1, estadoNetworker: 1 } })
+        .sort({ nombre: 1 })
+        .toArray()
+    );
+    const telefonos = networkers.map((n) => n.telefono);
+    const tarjetas = await withTarjetas(env, (collection) =>
+      collection
+        .find(
+          { propietarioTelefono: { $in: telefonos }, esMiTarjeta: true },
+          { projection: { propietarioTelefono: 1, nombre: 1, empresa: 1, fotoPerfil: 1, vistas: 1, compartidos: 1, actualizadoEn: 1 } }
+        )
+        .toArray()
+    );
+    const tarjetaPorTelefono = new Map(tarjetas.map((t) => [t.propietarioTelefono, t]));
+
+    return jsonResponse(
+      networkers.map((n) => {
+        const t = tarjetaPorTelefono.get(n.telefono);
+        return {
+          telefono: n.telefono,
+          nombre: n.nombre,
+          empresa: n.empresa,
+          estadoNetworker: n.estadoNetworker,
+          tieneTarjeta: Boolean(t),
+          tarjetaId: t ? String(t._id) : null,
+          fotoPerfil: t?.fotoPerfil || "",
+          vistas: t?.vistas || 0,
+          compartidos: t?.compartidos || 0,
+          actualizadoEn: t?.actualizadoEn || null
+        };
+      })
+    );
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar tarjetas de networkers.", message: error.message }, 500);
+  }
+}
+
 export async function handleObtenerNetworker(request, env, telefono) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);

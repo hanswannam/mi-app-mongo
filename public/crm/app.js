@@ -547,12 +547,33 @@ function abrirFormNetworker(networker) {
 }
 
 // ---------- Tarjetas digitales (reutiliza la PWA existente) ----------
-function renderTarjetas(cont) {
-  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Tarjetas Digitales</div><div class="vista-sub">Billetera de Networkers</div></div></div>
-    <div class="placeholder-fase">
-      <p style="font-size:15px;color:var(--texto);margin-bottom:18px;">Cada networker ya tiene su propia tarjeta digital, QR personal y directorio de contactos en la app de Billetera. El CRM no la reemplaza: la reutiliza.</p>
-      <a class="btn-primario" style="text-decoration:none;display:inline-block;" href="/" target="_blank" rel="noopener">Abrir mi Tarjeta Digital →</a>
-    </div>`;
+async function renderTarjetas(cont) {
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Tarjetas Digitales</div><div class="vista-sub">Billetera de Networkers -- vínculo entre cada networker y su tarjeta personal</div></div>
+    <a class="btn-secundario" style="text-decoration:none;display:inline-block;" href="/" target="_blank" rel="noopener">Abrir mi Tarjeta Digital →</a></div>
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Networker</th><th>Empresa</th><th>Tarjeta</th><th>Vistas</th><th>Compartidos</th><th>Actualizada</th><th></th></tr></thead><tbody id="tabla-tarjetas">Cargando…</tbody></table></div>`;
+
+  const { ok, data } = await api(conCapitulo("/api/networkers-tarjetas"));
+  const tbody = document.getElementById("tabla-tarjetas");
+  if (!ok) {
+    tbody.innerHTML = `<tr><td colspan="7" class="estado-vacio">${escapeHtml(data.error || "No se pudo cargar.")}</td></tr>`;
+    return;
+  }
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="estado-vacio">Todavía no hay networkers en este capítulo.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((n) => `
+    <tr>
+      <td><strong>${escapeHtml(n.nombre)}</strong></td>
+      <td>${escapeHtml(n.empresa || "—")}</td>
+      <td>${n.tieneTarjeta ? pill("configurada", "activo") : pill("sin configurar", "suspendido")}</td>
+      <td>${n.tieneTarjeta ? n.vistas : "—"}</td>
+      <td>${n.tieneTarjeta ? n.compartidos : "—"}</td>
+      <td>${n.tieneTarjeta ? formatFecha(n.actualizadoEn) : "—"}</td>
+      <td style="text-align:right;">
+        ${n.tieneTarjeta ? `<a class="btn-rapido" href="/t?id=${n.tarjetaId}" target="_blank" rel="noopener" title="Ver tarjeta">👁️</a>` : `<span class="btn-rapido deshabilitado" title="Sin tarjeta todavía">👁️</span>`}
+      </td>
+    </tr>`).join("");
 }
 
 // ---------- Esferas ----------
