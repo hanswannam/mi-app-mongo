@@ -814,6 +814,25 @@ function miTarjetaActual() {
   return contactos.find((c) => c.esMiTarjeta);
 }
 
+// El script de qrcode.js se carga desde un CDN externo en el <head>; en una
+// red de celular lenta puede no estar listo todavía cuando se abre "Mi
+// Tarjeta" (antes, en ese caso, simplemente no aparecía nada, sin aviso ni
+// reintento). Esto reintenta cargarlo una vez más antes de rendirse.
+let qrCodePromise = null;
+function asegurarQRCode() {
+  if (window.QRCode) return Promise.resolve(true);
+  if (!qrCodePromise) {
+    qrCodePromise = new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+  }
+  return qrCodePromise;
+}
+
 async function renderMiTarjeta() {
   const cont = document.getElementById("mitarjeta-contenido");
   const referencia = miTarjetaActual();
@@ -857,8 +876,10 @@ async function renderMiTarjeta() {
     <button type="button" class="btn-ghost btn-block" id="btn-ver-estadisticas" style="text-align:center; width:100%;">Ver estadísticas →</button>
   `;
 
-  if (window.QRCode) {
+  if (await asegurarQRCode()) {
     QRCode.toCanvas(document.getElementById("qr-canvas"), enlace, { width: 200, margin: 1, color: { dark: "#1F2937" } });
+  } else {
+    document.querySelector(".qr-wrap").innerHTML = '<p class="placeholder-text">No se pudo cargar el código QR. Verifica tu conexión y vuelve a abrir esta pantalla.</p>';
   }
 
   document.getElementById("btn-compartir-mt").addEventListener("click", async () => {
