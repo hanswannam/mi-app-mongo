@@ -4,10 +4,10 @@
 //  2) Interruptor por capítulo (capituloModulos): el Super Admin puede
 //     apagar un módulo completo para un capítulo. Si no hay registro, el
 //     módulo está activo por defecto (no rompe capítulos existentes).
-//  3) Override por usuario (permisosUsuario): el admin del capítulo puede
-//     apagar un módulo para una persona puntual. Solo resta permisos, no
-//     otorga más de los que ya da su rol -- evita que alguien se autorice
-//     a algo que su rol no permite.
+//  3) Override por usuario (permisosUsuario): el admin puede limitar, para
+//     una persona puntual, CUÁLES acciones le quedan disponibles en un
+//     módulo (p.ej. solo "ver", sin "crear"/"editar"). Es un techo: nunca
+//     otorga una acción que el rol no daría de por sí, solo puede recortar.
 
 import { jsonResponse } from "./src/utils/response.js";
 import { errorResponse } from "./src/utils/errorResponse.js";
@@ -135,15 +135,19 @@ async function obtenerMapaCapitulo(env, capituloId) {
 async function obtenerMapaUsuario(env, telefono) {
   if (!telefono) return new Map();
   const registros = await withPermisosUsuario(env, (c) => c.find({ telefono }).toArray());
-  return new Map(registros.map((r) => [r.moduloKey, r.activo]));
+  return new Map(registros.map((r) => [r.moduloKey, new Set(r.acciones || [])]));
 }
 
 // Resuelve las tres capas de forma síncrona a partir de mapas ya cargados.
+// Si hay un override de usuario para ese módulo, actúa como techo: la
+// acción solo se permite si además está en el conjunto que le dejaron
+// (p.ej. alguien con override ["ver"] nunca puede "editar", aunque su rol
+// si lo permitiría).
 function resolverPermiso(rol, moduloKey, accion, mapaCapitulo, mapaUsuario) {
   if (esSuperAdminRol(rol)) return true;
   if (!permiteRol(rol, moduloKey, accion)) return false;
   if (mapaCapitulo.has(moduloKey) && mapaCapitulo.get(moduloKey) === false) return false;
-  if (mapaUsuario.has(moduloKey) && mapaUsuario.get(moduloKey) === false) return false;
+  if (mapaUsuario.has(moduloKey) && !mapaUsuario.get(moduloKey).has(accion)) return false;
   return true;
 }
 
@@ -233,20 +237,32 @@ export async function handleGuardarCapituloModulo(request, env, capituloId) {
 }
 
 // ---------- Overrides por usuario ----------
+// Lista, para un usuario, los módulos que su ROL le da por defecto junto
+// con cuáles acciones le quedan realmente disponibles (ya aplicado el
+// override, si existe) -- así el panel de "permisos de este usuario" en
+// el CRM puede mostrar checkboxes ver/crear/editar/eliminar/exportar/
+// activar por módulo, precargados con el estado actual.
 export async function handleListPermisosUsuario(request, env, telefonoParam) {
   const telefono = soloDigitos(telefonoParam);
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
   try {
-    const registros = await withPermisosUsuario(env, (c) => c.find({ telefono }).toArray());
-    if (!esSuperAdminRol(sesion.rol) && sesion.telefono !== telefono) {
-      const objetivo = registros[0];
-      if (objetivo && sesion.capituloId !== objetivo.capituloId) {
-        return jsonResponse({ error: "No tienes acceso a los permisos de este usuario." }, 403);
-      }
+    const objetivo = await withUsuariosPublico(env, telefono);
+    if (!objetivo) return jsonResponse({ error: "Usuario no encontrado." }, 404);
+    if (!esSuperAdminRol(sesion.rol) && sesion.capituloId !== objetivo.capituloId) {
+      return jsonResponse({ error: "No tienes acceso a los permisos de este usuario." }, 403);
     }
-    return jsonResponse(registros.map((r) => ({ moduloKey: r.moduloKey, activo: r.activo })));
+
+    const mapaUsuario = await obtenerMapaUsuario(env, telefono);
+    const modulosDelRol = modulosConVistaPorRol(objetivo.rol);
+    const resultado = modulosDelRol.map((moduloKey) => {
+      const accionesDelRol = ACCIONES.filter((a) => permiteRol(objetivo.rol, moduloKey, a));
+      const override = mapaUsuario.get(moduloKey);
+      const accionesActuales = override ? accionesDelRol.filter((a) => override.has(a)) : accionesDelRol;
+      return { moduloKey, accionesDisponibles: accionesDelRol, accionesActuales };
+    });
+    return jsonResponse(resultado);
   } catch (error) {
     return jsonResponse({ error: "Error al consultar permisos del usuario.", message: error.message }, 500);
   }
@@ -266,16 +282,22 @@ export async function handleGuardarPermisoUsuario(request, env, telefonoParam) {
   const moduloKey = texto(body.moduloKey);
   if (!MODULOS.includes(moduloKey)) return jsonResponse({ error: "Módulo inválido." }, 400);
 
+  const acciones = Array.isArray(body.acciones) ? body.acciones.filter((a) => ACCIONES.includes(a)) : [];
+
   try {
     await withPermisosUsuario(env, (c) =>
       c.updateOne(
         { telefono, moduloKey },
-        { $set: { telefono, moduloKey, capituloId, activo: Boolean(body.activo) } },
+        { $set: { telefono, moduloKey, capituloId, acciones } },
         { upsert: true }
       )
     );
-    return jsonResponse({ telefono, moduloKey, activo: Boolean(body.activo) });
+    return jsonResponse({ telefono, moduloKey, acciones });
   } catch (error) {
     return jsonResponse({ error: "Error al guardar el permiso del usuario.", message: error.message }, 500);
   }
+}
+
+async function withUsuariosPublico(env, telefono) {
+  return withCollection(env, "usuarios", (c) => c.findOne({ telefono }, { projection: { telefono: 1, rol: 1, capituloId: 1, nombre: 1 } }));
 }

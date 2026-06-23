@@ -442,6 +442,7 @@ async function renderUsuarios(cont) {
       <td>${pill(ETIQUETA_ROL[u.rol] || u.rol, u.rol === "admin_capitulo" || esRolDeSistema(u.rol) ? "activo" : "invitado")}</td>
       <td>${u.estado === "suspendido" ? pill("suspendido", "suspendido") : pill("activo", "activo")}</td>
       <td style="text-align:right;">
+        ${esRolDeSistema(u.rol) ? "" : `<button class="btn-secundario btn-permisos-usuario" style="padding:6px 12px;font-size:12px;">Permisos</button>`}
         ${puede("usuarios", "activar") ? `<button class="btn-secundario btn-toggle-estado-usuario" data-estado="${u.estado || "activo"}" style="padding:6px 12px;font-size:12px;">${u.estado === "suspendido" ? "Reactivar" : "Suspender"}</button>` : ""}
       </td>
     </tr>`).join("");
@@ -460,6 +461,54 @@ async function renderUsuarios(cont) {
         await renderVista();
       });
     }
+    const btnPermisos = tr.querySelector(".btn-permisos-usuario");
+    if (btnPermisos) {
+      btnPermisos.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const u = data.find((x) => x.telefono === tr.dataset.telefono);
+        abrirPermisosUsuario(u);
+      });
+    }
+  });
+}
+
+const ETIQUETA_ACCION = { ver: "Ver", crear: "Crear", editar: "Editar", eliminar: "Eliminar", exportar: "Exportar", activar: "Activar" };
+
+async function abrirPermisosUsuario(usuario) {
+  abrirPanel(`Permisos de ${usuario.nombre}`, `<p class="vista-sub" style="margin-bottom:16px;">Desmarca una acción para quitársela solo a esta persona (nunca le da más de lo que su rol ya permite).</p>
+    <div id="lista-permisos-usuario">Cargando…</div>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-permisos-usuario">Guardar cambios</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-permisos-mensaje"></p>`);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+
+  const { ok, data } = await api(`/api/usuarios/${usuario.telefono}/permisos`);
+  const cont = document.getElementById("lista-permisos-usuario");
+  if (!ok) { cont.innerHTML = `<p class="form-mensaje error">${escapeHtml(data.error || "No se pudo cargar.")}</p>`; return; }
+  if (data.length === 0) { cont.innerHTML = `<p class="vista-sub">Este rol no tiene módulos para administrar.</p>`; return; }
+
+  cont.innerHTML = data.map((m) => `
+    <div class="campo" data-modulo="${m.moduloKey}">
+      <label>${escapeHtml(NOMBRES_MODULO[m.moduloKey] || m.moduloKey)}</label>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        ${m.accionesDisponibles.map((a) => `<label class="campo-checkbox"><input type="checkbox" value="${a}" ${m.accionesActuales.includes(a) ? "checked" : ""}> ${ETIQUETA_ACCION[a] || a}</label>`).join("")}
+      </div>
+    </div>`).join("");
+
+  document.getElementById("btn-guardar-permisos-usuario").addEventListener("click", async () => {
+    const msg = document.getElementById("form-permisos-mensaje");
+    const bloques = cont.querySelectorAll("[data-modulo]");
+    for (const bloque of bloques) {
+      const moduloKey = bloque.dataset.modulo;
+      const acciones = [...bloque.querySelectorAll("input[type=checkbox]:checked")].map((i) => i.value);
+      const { ok: okGuardar, data: dataGuardar } = await api(`/api/usuarios/${usuario.telefono}/permisos`, {
+        method: "PUT", body: JSON.stringify({ capituloId: usuario.capituloId || capituloIdActivo, moduloKey, acciones })
+      });
+      if (!okGuardar) { msg.className = "form-mensaje error"; msg.textContent = dataGuardar.error || "No se pudo guardar."; return; }
+    }
+    cerrarPanel();
   });
 }
 
