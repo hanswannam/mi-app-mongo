@@ -245,6 +245,10 @@ async function mostrarApp() {
   renderSidebar();
   renderBottomNav();
   await renderVista();
+
+  if (!localStorage.getItem(`tourCompletado_${usuarioActual.telefono}`)) {
+    setTimeout(() => iniciarTour(), 600);
+  }
 }
 
 function renderTopbarCapitulo() {
@@ -1560,5 +1564,137 @@ async function renderConfiguracion(cont) {
     });
   });
 }
+
+// ---------- Tour guiado ----------
+// Recorre solo los módulos que esta persona realmente puede ver (mismo
+// filtro que el menú lateral), así nadie ve un paso de un módulo al que
+// no tiene acceso. Se guarda en localStorage por teléfono para no
+// repetirlo solo en este navegador; "Tour guiado" en el menú lo vuelve a
+// lanzar cuando quieran.
+const DESCRIPCION_MODULO_TOUR = {
+  dashboard: "El resumen de tu capítulo: GPNC total, visitantes, referencias, 1 a 1 realizados, ranking de miembros y qué esferas todavía no están cubiertas.",
+  capitulos: "Aquí creas y administras los capítulos de la plataforma. Cada capítulo tiene su propia información, separada de los demás.",
+  usuarios: "Administra quién tiene acceso al sistema y con qué rol: administradores, sub-administradores (co-administradores de tu capítulo) y networkers. También puedes ajustar permisos puntuales por persona.",
+  networkers: "El directorio de miembros del capítulo. Busca por nombre, empresa o esfera, y contáctalos directo con los botones de WhatsApp, llamada o correo.",
+  tarjetas: "Aquí ves si cada networker ya configuró su tarjeta digital personal, y sus estadísticas de vistas y veces compartida.",
+  esferas: "Las industrias que cubre tu capítulo. El sistema te avisa cuáles todavía no tienen ningún networker asignado.",
+  referencias: "Registra los negocios que te recomiendan o que tú le diste a otro networker. Solo ves las que te involucran a ti.",
+  gpnc: "Gracias Por Negocio Concretado: registra cuando una referencia se convierte en un negocio real cerrado, con el monto.",
+  unoauno: "Agenda tus reuniones individuales con otros networkers para conocerse mejor y encontrar oportunidades de negocio.",
+  visitantes: "Registra a las personas que invitas a una reunión y da seguimiento hasta que se conviertan en miembros. Solo ves los que tú invitaste.",
+  calendario: "El calendario del capítulo: reuniones semanales, capacitaciones, lanzamientos. Cada networker puede agendar y editar lo suyo; el administrador gestiona todo.",
+  capacitacion: "Material y sesiones de formación organizadas por el administrador del capítulo, con seguimiento del avance de cada persona.",
+  recursos: "Biblioteca de enlaces útiles para el capítulo: manuales, plantillas, videos.",
+  asistencia: "El control de asistencia a las reuniones, con el porcentaje de cada networker y alertas de baja asistencia.",
+  configuracion: "Aquí el administrador puede prender o apagar módulos completos para todo el capítulo."
+};
+
+let tourPasos = [];
+let tourIndice = 0;
+
+function construirPasosTour() {
+  const modulos = SECCIONES.filter((s) => !s.proximamente && (!s.soloSuperAdmin || esSuperAdmin()) && puedeVer(s.id));
+  return [
+    { titulo: "Bienvenido al CRM BNI", texto: "Este recorrido te muestra para qué sirve cada sección del menú. Puedes cerrarlo cuando quieras y volver a verlo después desde \"Tour guiado\".", target: null },
+    ...modulos.map((s) => ({ titulo: `${s.icono} ${s.label}`, texto: DESCRIPCION_MODULO_TOUR[s.id] || "", target: `.sidebar-item[data-vista="${s.id}"]` })),
+    { titulo: "¡Listo!", texto: "Ya conoces el sistema. Explora con confianza -- y si algo no te deja hacer algo, probablemente sea por tu rol o porque el administrador lo desactivó para tu capítulo.", target: null }
+  ];
+}
+
+function iniciarTour() {
+  tourPasos = construirPasosTour();
+  tourIndice = 0;
+  mostrarPasoTour();
+}
+
+function limpiarResaltadoTour() {
+  document.querySelectorAll(".tour-resaltado").forEach((el) => el.classList.remove("tour-resaltado"));
+}
+
+function cerrarTour() {
+  limpiarResaltadoTour();
+  document.getElementById("tour-overlay-dim").classList.remove("visible");
+  document.getElementById("tour-card").classList.remove("visible");
+  if (usuarioActual) localStorage.setItem(`tourCompletado_${usuarioActual.telefono}`, "true");
+}
+
+function posicionarCardTour(targetEl) {
+  const card = document.getElementById("tour-card");
+  const esMovil = window.innerWidth <= 880;
+  if (!targetEl) {
+    card.style.transform = "translate(-50%, -50%)";
+    card.style.top = "50%";
+    card.style.left = "50%";
+    return;
+  }
+  targetEl.classList.add("tour-resaltado");
+  targetEl.scrollIntoView({ block: "center", behavior: "smooth" });
+  card.style.transform = "none";
+  const r = targetEl.getBoundingClientRect();
+  if (esMovil) {
+    card.style.top = `${Math.min(r.bottom + 12, window.innerHeight - 220)}px`;
+    card.style.left = "16px";
+  } else {
+    card.style.top = `${Math.max(16, Math.min(r.top, window.innerHeight - 240))}px`;
+    card.style.left = `${r.right + 16}px`;
+  }
+}
+
+function mostrarPasoTour() {
+  limpiarResaltadoTour();
+  const paso = tourPasos[tourIndice];
+  const esMovil = window.innerWidth <= 880;
+
+  if (paso.target) {
+    if (esMovil) abrirSidebarMovil();
+  } else if (esMovil) {
+    cerrarSidebarMovil();
+  }
+
+  const overlay = document.getElementById("tour-overlay-dim");
+  const card = document.getElementById("tour-card");
+  overlay.classList.add("visible");
+  card.classList.add("visible");
+
+  card.innerHTML = `
+    <div class="tour-card-paso">Paso ${tourIndice + 1} de ${tourPasos.length}</div>
+    <div class="tour-card-titulo">${escapeHtml(paso.titulo)}</div>
+    <div class="tour-card-texto">${escapeHtml(paso.texto)}</div>
+    <div class="tour-card-botones">
+      <button type="button" class="btn-tour-cerrar" id="btn-tour-cerrar">Cerrar tour</button>
+      <div class="tour-card-nav">
+        ${tourIndice > 0 ? '<button type="button" class="btn-secundario" id="btn-tour-anterior">Anterior</button>' : ""}
+        <button type="button" class="btn-primario" id="btn-tour-siguiente">${tourIndice === tourPasos.length - 1 ? "Terminar" : "Siguiente"}</button>
+      </div>
+    </div>`;
+
+  // En móvil, abrir el drawer del sidebar dispara una transición CSS de
+  // 0.2s; medir la posición del elemento antes de que termine daría una
+  // posición a medio camino. En escritorio el sidebar ya está visible, no
+  // hace falta esperar.
+  if (paso.target && esMovil) {
+    setTimeout(() => posicionarCardTour(document.querySelector(paso.target)), 220);
+  } else {
+    posicionarCardTour(paso.target ? document.querySelector(paso.target) : null);
+  }
+
+  document.getElementById("btn-tour-cerrar").addEventListener("click", cerrarTour);
+  const btnSiguiente = document.getElementById("btn-tour-siguiente");
+  btnSiguiente.addEventListener("click", () => {
+    if (tourIndice === tourPasos.length - 1) { cerrarTour(); return; }
+    tourIndice++;
+    mostrarPasoTour();
+  });
+  const btnAnterior = document.getElementById("btn-tour-anterior");
+  if (btnAnterior) {
+    btnAnterior.addEventListener("click", () => {
+      tourIndice--;
+      mostrarPasoTour();
+    });
+  }
+}
+
+document.getElementById("tour-overlay-dim").addEventListener("click", cerrarTour);
+document.getElementById("btn-tour").addEventListener("click", iniciarTour);
 
 iniciar();

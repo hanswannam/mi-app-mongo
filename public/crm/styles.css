@@ -260,3 +260,34 @@ table.tabla-crm tr:hover td { background: #FAFBFD; }
   .bottom-nav-item .icono { font-size: 19px; }
   .bottom-nav-item.activo { color: var(--dorado-oscuro); }
 }
+
+/* ---------- Tour guiado ---------- */
+.tour-overlay-dim {
+  display: none; position: fixed; inset: 0; background: rgba(15,27,61,0.6); z-index: 200; cursor: pointer;
+}
+.tour-overlay-dim.visible { display: block; }
+
+/* El elemento resaltado sube por encima del overlay (que cubre todo lo
+   demas) para que se vea "iluminado" mientras el resto queda oscurecido. */
+.tour-resaltado {
+  position: relative !important; z-index: 201 !important;
+  box-shadow: 0 0 0 4px var(--dorado), 0 0 28px rgba(217,164,65,0.55) !important;
+  border-radius: 4px !important;
+}
+
+.tour-card {
+  display: none; position: fixed; z-index: 202; background: var(--blanco); border-radius: 6px;
+  padding: 20px 22px; width: 320px; box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+}
+.tour-card.visible { display: block; }
+.tour-card-paso { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dorado-oscuro); font-weight: 700; margin-bottom: 6px; }
+.tour-card-titulo { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+.tour-card-texto { font-size: 13px; color: var(--texto-claro); line-height: 1.5; margin-bottom: 16px; }
+.tour-card-botones { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tour-card-nav { display: flex; gap: 6px; }
+.tour-card button { font-size: 12px; padding: 8px 12px; }
+.btn-tour-cerrar { background: none; border: none; color: var(--texto-claro); font-size: 12px; text-decoration: underline; padding: 4px; }
+
+@media (max-width: 880px) {
+  .tour-card { width: calc(100vw - 32px); left: 16px !important; right: 16px; }
+}
