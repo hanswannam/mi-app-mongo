@@ -1,4 +1,4 @@
-const CACHE_NAME = "billetera-v4";
+const CACHE_NAME = "billetera-v5";
 const APP_SHELL = [
   "/manifest.json",
   "/icons/icon-192.png",
@@ -9,8 +9,13 @@ const APP_SHELL = [
 // Rutas que cambian con cada deploy (HTML + lógica de la app). Estas SIEMPRE
 // deben ir primero a la red: servirlas desde caché puede mezclar una versión
 // vieja de index.html con una nueva de app.js (o viceversa) y romper la app
-// de forma silenciosa entre una sesión y otra.
+// de forma silenciosa entre una sesión y otra. app.js ahora se divide en
+// módulos bajo /src/ (mismo motivo: cualquier archivo de ahí es lógica de
+// la app, no un asset estático como un ícono).
 const RUTAS_DINAMICAS = ["/", "/app.js", "/admin", "/t", "/activar"];
+function esRutaDinamica(pathname) {
+  return RUTAS_DINAMICAS.includes(pathname) || pathname.startsWith("/src/");
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -41,7 +46,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   // HTML/JS de la app: red primero, caché solo como respaldo sin conexión.
-  if (RUTAS_DINAMICAS.includes(url.pathname)) {
+  if (esRutaDinamica(url.pathname)) {
     event.respondWith(
       fetch(request)
         .then((response) => {

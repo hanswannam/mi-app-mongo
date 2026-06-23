@@ -1,3 +1,8 @@
+import { escapeHtml, iniciales } from "./src/utils/strings.js";
+import { normalizarUrl, whatsappUrl, urlRedSocial } from "./src/utils/contactLinks.js";
+import { filtrarLista } from "./src/utils/listFilters.js";
+import { fetchConLimite, mensajeDeError } from "./src/utils/network.js";
+
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
 // necesitar conectar el teléfono a una computadora). Si algo falla antes de
 // que la app termine de cargar, se muestra el error aquí mismo en vez de
@@ -37,14 +42,6 @@ const REDES = [
   { campo: "tiktok", etiqueta: "TikTok", glyph: "🎵", base: "https://tiktok.com/@" },
   { campo: "twitter", etiqueta: "X", glyph: "✖️", base: "https://x.com/" }
 ];
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-function iniciales(nombre) {
-  return (nombre || "?").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
-}
 
 // ---------- Tema oscuro ----------
 function aplicarTema(oscuro) {
@@ -235,22 +232,6 @@ async function cargarCategorias() {
 }
 
 // ---------- Carga de contactos ----------
-// Si la conexión está muy lenta o se cae a mitad de la petición, un fetch()
-// normal puede quedar esperando indefinidamente sin avisar (se ve como que
-// la pantalla nunca termina de cargar). Con un límite de tiempo, en vez de
-// eso se muestra un mensaje claro para que el usuario sepa que es su señal,
-// no que la app esté rota.
-function fetchConLimite(url, opciones = {}, limiteMs = 15000) {
-  const controlador = new AbortController();
-  const aviso = setTimeout(() => controlador.abort(), limiteMs);
-  return fetch(url, { ...opciones, signal: controlador.signal }).finally(() => clearTimeout(aviso));
-}
-
-function mensajeDeError(error) {
-  if (error.name === "AbortError") return "Tu conexión está muy lenta o no responde. Verifica tu señal e intenta de nuevo.";
-  return error.message;
-}
-
 async function cargarContactos() {
   try {
     const r = await fetchConLimite("/api/tarjetas", { cache: "no-store" });
@@ -275,16 +256,6 @@ async function cargarDirectorio() {
     console.error("cargarDirectorio:", error);
     directorio = [];
   }
-}
-
-function filtrarLista(lista, filtro, texto, categoria) {
-  const t = (texto || "").trim().toLowerCase();
-  return lista.filter((c) => {
-    const coincideTexto = !t || (c.nombre || "").toLowerCase().includes(t) || (c.empresa || "").toLowerCase().includes(t);
-    const coincideFiltro = filtro === "todos" || (filtro === "favorito" ? c.favorito : c.etiqueta === filtro);
-    const coincideCategoria = !categoria || c.categoria === categoria;
-    return coincideTexto && coincideFiltro && coincideCategoria;
-  });
 }
 
 function accionesRapidas(c) {
@@ -403,31 +374,6 @@ document.querySelectorAll('.chip-row[data-grupo="contactos"] .chip').forEach((ch
 });
 document.getElementById("buscador-contactos").addEventListener("input", renderContactosLista);
 document.getElementById("filtro-categoria-directorio").addEventListener("change", renderContactosLista);
-
-// ---------- Acciones de contacto (whatsapp, redes) ----------
-// Defensa adicional para tarjetas guardadas antes de normalizar la URL al
-// guardar en el servidor (ej. "empresa.com" sin protocolo, que el navegador
-// resolvería como ruta relativa al propio sitio en vez de abrir la web real).
-function normalizarUrl(valor) {
-  const v = (valor || "").trim().replace(/\s+/g, "");
-  if (!v) return null;
-  if (/^https?:\/\//i.test(v)) return v;
-  return `https://${v}`;
-}
-
-function whatsappUrl(telefono, mensaje) {
-  const digitos = (telefono || "").replace(/\D/g, "");
-  if (!digitos) return null;
-  const conCodigo = digitos.length <= 8 ? `502${digitos}` : digitos;
-  return `https://wa.me/${conCodigo}` + (mensaje ? `?text=${encodeURIComponent(mensaje)}` : "");
-}
-
-function urlRedSocial(red, valor) {
-  if (!valor) return null;
-  const v = valor.trim();
-  if (/^https?:\/\//i.test(v)) return v;
-  return red.base + v.replace(/^@/, "");
-}
 
 // ---------- Detalle de contacto ----------
 function buscarContactoPorId(id) {
