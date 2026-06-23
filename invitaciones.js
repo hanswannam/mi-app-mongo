@@ -1,8 +1,11 @@
-import { jsonResponse, texto, soloDigitos } from "./lib/utils.js";
+import { jsonResponse } from "./src/utils/response.js";
+import { errorResponse } from "./src/utils/errorResponse.js";
+import { parseJson } from "./src/utils/parseJson.js";
+import { texto } from "./src/utils/strings.js";
+import { soloDigitos, normalizarTelefono } from "./src/utils/normalizePhone.js";
 import { bytesAHex, generarSalt, hashConSalt, firmarSesion } from "./lib/crypto.js";
 import { SESION_DURACION_MS, cookieSesion, obtenerConfig, obtenerSesion } from "./lib/sesion.js";
 import { parseObjectId, withUsuarios, withTarjetas, withInvitaciones } from "./lib/db.js";
-import { normalizarTelefono } from "./tarjetas.js";
 import { infoUsuarioPublica } from "./usuarios.js";
 
 const INVITACION_DURACION_MS = 1000 * 60 * 60 * 24 * 30; // 30 días
@@ -110,12 +113,8 @@ export async function handleActivarInvitacion(request, env, token) {
   const { sessionSecret } = await obtenerConfig(env);
   if (!sessionSecret) return jsonResponse({ error: "Falta configurar SESSION_SECRET en el servidor." }, 500);
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   try {
     const invitacion = await withInvitaciones(env, (collection) => collection.findOne({ token }));

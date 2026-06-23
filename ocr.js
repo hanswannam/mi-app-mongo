@@ -1,6 +1,8 @@
 // --- OCR vía OpenAI (usa la API key guardada por el propio usuario) ---
 
-import { jsonResponse } from "./lib/utils.js";
+import { jsonResponse } from "./src/utils/response.js";
+import { errorResponse } from "./src/utils/errorResponse.js";
+import { parseJson } from "./src/utils/parseJson.js";
 import { obtenerSesion } from "./lib/sesion.js";
 import { withUsuarios } from "./lib/db.js";
 
@@ -8,12 +10,8 @@ export async function handleOcr(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const imagen = body.imagen;
   if (!imagen || typeof imagen !== "string" || !imagen.startsWith("data:image/")) {

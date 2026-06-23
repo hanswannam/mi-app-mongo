@@ -1,6 +1,9 @@
 // --- Categorías (gestionadas por el administrador) ---
 
-import { jsonResponse, texto } from "./lib/utils.js";
+import { jsonResponse } from "./src/utils/response.js";
+import { errorResponse } from "./src/utils/errorResponse.js";
+import { parseJson } from "./src/utils/parseJson.js";
+import { texto } from "./src/utils/strings.js";
 import { obtenerSesion, requerirAdmin } from "./lib/sesion.js";
 import { parseObjectId, withCategorias } from "./lib/db.js";
 
@@ -46,12 +49,8 @@ export async function handleCrearCategoria(request, env) {
   const { error } = await requerirAdmin(request, env);
   if (error) return error;
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const nombre = texto(body.nombre);
   if (!nombre) return jsonResponse({ error: "El nombre de la categoría es obligatorio." }, 400);

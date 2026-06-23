@@ -2,7 +2,11 @@
 // Es el módulo más transversal: el resumen del dashboard consulta las 5
 // colecciones a la vez (usuarios, tarjetas, eventos, invitaciones).
 
-import { jsonResponse, texto, soloDigitos } from "./lib/utils.js";
+import { jsonResponse } from "./src/utils/response.js";
+import { errorResponse } from "./src/utils/errorResponse.js";
+import { parseJson } from "./src/utils/parseJson.js";
+import { texto } from "./src/utils/strings.js";
+import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { generarSalt, hashConSalt } from "./lib/crypto.js";
 import { requerirAdmin } from "./lib/sesion.js";
 import { withUsuarios, withTarjetas, withEventos, withInvitaciones } from "./lib/db.js";
@@ -115,12 +119,8 @@ export async function handleCambiarEstado(request, env, telefonoObjetivo) {
   const { error, sesion } = await requerirAdmin(request, env);
   if (error) return error;
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const nuevoEstado = body.estado === "suspendido" ? "suspendido" : "activo";
   if (telefonoObjetivo === sesion.telefono && nuevoEstado === "suspendido") {
@@ -144,12 +144,8 @@ export async function handleCambiarRol(request, env, telefonoObjetivo) {
   const { error } = await requerirAdmin(request, env);
   if (error) return error;
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const nuevoRol = body.rol === "admin" ? "admin" : "usuario";
 
@@ -172,12 +168,8 @@ export async function handleAdminEditarUsuario(request, env, telefonoObjetivo) {
   const { error } = await requerirAdmin(request, env);
   if (error) return error;
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const nombreNuevo = texto(body.nombre);
   const dpiNuevo = soloDigitos(body.dpiNuevo);

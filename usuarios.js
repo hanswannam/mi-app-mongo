@@ -1,4 +1,9 @@
-import { jsonResponse, texto, soloDigitos, leerImagen } from "./lib/utils.js";
+import { jsonResponse } from "./src/utils/response.js";
+import { errorResponse } from "./src/utils/errorResponse.js";
+import { parseJson } from "./src/utils/parseJson.js";
+import { texto } from "./src/utils/strings.js";
+import { soloDigitos } from "./src/utils/normalizePhone.js";
+import { leerImagen } from "./src/utils/validateImage.js";
 import { generarSalt, hashConSalt, firmarSesion } from "./lib/crypto.js";
 import { SESION_DURACION_MS, cookieSesion, obtenerConfig, obtenerSesion } from "./lib/sesion.js";
 import { withUsuarios, withTarjetas } from "./lib/db.js";
@@ -17,12 +22,8 @@ export async function handleGuardarApiKey(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const openaiApiKey = texto(body.openaiApiKey);
 
@@ -49,12 +50,8 @@ export async function handleActualizarUsuario(request, env) {
     return jsonResponse({ error: "Falta configurar SESSION_SECRET en el servidor." }, 500);
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const dpiActual = soloDigitos(body.dpiActual);
   if (!dpiActual) {

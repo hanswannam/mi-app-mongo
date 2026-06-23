@@ -1,6 +1,10 @@
 // --- Eventos (vistas / compartidos / descargas) y estadísticas ---
 
-import { jsonResponse, texto } from "./lib/utils.js";
+import { jsonResponse } from "./src/utils/response.js";
+import { errorResponse } from "./src/utils/errorResponse.js";
+import { parseJson } from "./src/utils/parseJson.js";
+import { texto } from "./src/utils/strings.js";
+import { formatDateYYYYMMDD } from "./src/utils/formatDate.js";
 import { obtenerSesion } from "./lib/sesion.js";
 import { parseObjectId, withUsuarios, withTarjetas, withEventos } from "./lib/db.js";
 
@@ -13,12 +17,8 @@ export async function handleRegistrarEvento(request, env, id) {
   const objectId = parseObjectId(id);
   if (!objectId) return jsonResponse({ error: "ID inválido." }, 400);
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const tipo = texto(body.tipo).toLowerCase();
   if (!TIPOS_EVENTO.includes(tipo)) {
@@ -79,7 +79,7 @@ export async function handleEstadisticasTarjeta(request, env, id) {
     const porDia = {};
     for (const ev of eventos) {
       if (ev.tipo !== "vista") continue;
-      const clave = ev.fecha.toISOString().slice(0, 10);
+      const clave = formatDateYYYYMMDD(ev.fecha);
       porDia[clave] = (porDia[clave] || 0) + 1;
     }
     const serieVistas = Object.entries(porDia)

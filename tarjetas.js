@@ -1,6 +1,12 @@
 // --- Tarjetas (privadas por usuario) ---
 
-import { jsonResponse, texto, normalizarUrl, leerImagen } from "./lib/utils.js";
+import { jsonResponse } from "./src/utils/response.js";
+import { errorResponse } from "./src/utils/errorResponse.js";
+import { parseJson } from "./src/utils/parseJson.js";
+import { texto } from "./src/utils/strings.js";
+import { normalizarUrl } from "./src/utils/validateUrl.js";
+import { leerImagen } from "./src/utils/validateImage.js";
+import { normalizarTelefono } from "./src/utils/normalizePhone.js";
 import { obtenerSesion } from "./lib/sesion.js";
 import { parseObjectId, withTarjetas } from "./lib/db.js";
 
@@ -31,17 +37,6 @@ export async function handleListTarjetas(request, env) {
 }
 
 const ETIQUETAS_VALIDAS = ["cliente", "proveedor", "aliado"];
-
-// "50251136189", "+50251136189" y "51136189" deben tratarse como el mismo
-// número: se normaliza a solo dígitos y se le quita el código de país
-// (502) cuando está presente, dejando el número local de 8 dígitos.
-export function normalizarTelefono(valor) {
-  let digitos = (valor || "").replace(/\D/g, "");
-  if (digitos.length > 8 && digitos.startsWith("502")) {
-    digitos = digitos.slice(3);
-  }
-  return digitos;
-}
 
 export function camposTarjeta(body) {
   const etiqueta = texto(body.etiqueta).toLowerCase();
@@ -81,12 +76,8 @@ export async function handleCreateTarjeta(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const campos = camposTarjeta(body);
   if (!campos.nombre) {
@@ -154,12 +145,8 @@ export async function handleUpdateTarjeta(request, env, id) {
   const objectId = parseObjectId(id);
   if (!objectId) return jsonResponse({ error: "ID de tarjeta inválido." }, 400);
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "El cuerpo de la solicitud debe ser JSON válido." }, 400);
-  }
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
 
   const campos = camposTarjeta(body);
   if (!campos.nombre) {
