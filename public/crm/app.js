@@ -15,14 +15,14 @@ const SECCIONES = [
   { id: "networkers", label: "Networkers", icono: "👥" },
   { id: "tarjetas", label: "Tarjetas Digitales", icono: "💳" },
   { id: "esferas", label: "Esferas", icono: "🧭" },
-  { id: "referencias", label: "Referencias", icono: "🔗", proximamente: true },
+  { id: "referencias", label: "Referencias", icono: "🔗" },
   { id: "gpnc", label: "GPNC", icono: "🤝" },
   { id: "unoauno", label: "Uno a Uno", icono: "☕" },
   { id: "visitantes", label: "Visitantes", icono: "🚪" },
-  { id: "calendario", label: "Calendario", icono: "📅", proximamente: true },
-  { id: "capacitacion", label: "Capacitación", icono: "🎓", proximamente: true },
-  { id: "recursos", label: "Recursos", icono: "📚", proximamente: true },
-  { id: "asistencia", label: "Asistencia", icono: "✅", proximamente: true },
+  { id: "calendario", label: "Calendario", icono: "📅" },
+  { id: "capacitacion", label: "Capacitación", icono: "🎓" },
+  { id: "recursos", label: "Recursos", icono: "📚" },
+  { id: "asistencia", label: "Asistencia", icono: "✅" },
   { id: "metas", label: "Metas", icono: "🎯", proximamente: true },
   { id: "reportes", label: "Reportes", icono: "📈", proximamente: true },
   { id: "configuracion", label: "Configuración", icono: "⚙️", proximamente: true }
@@ -210,7 +210,12 @@ async function renderVista() {
     esferas: renderEsferas,
     visitantes: renderVisitantes,
     gpnc: renderGpnc,
-    unoauno: renderUnoAUno
+    unoauno: renderUnoAUno,
+    referencias: renderReferencias,
+    calendario: renderCalendario,
+    capacitacion: renderCapacitacion,
+    recursos: renderRecursos,
+    asistencia: renderAsistencia
   };
   const fn = renderers[vistaActiva] || renderDashboard;
   await fn(cont);
@@ -581,13 +586,14 @@ async function renderGpnc(cont) {
   });
 }
 
-function abrirFormGpnc() {
+function abrirFormGpnc(prellenado) {
+  const p = prellenado || {};
   abrirPanel("Registrar GPNC", `
-    <div class="campo"><label>Networker que generó la referencia (teléfono)</label><input id="gp-genero"></div>
-    <div class="campo"><label>Cliente</label><input id="gp-cliente"></div>
+    <div class="campo"><label>Networker que generó la referencia (teléfono)</label><input id="gp-genero" value="${escapeHtml(p.generoTelefono || "")}"></div>
+    <div class="campo"><label>Cliente</label><input id="gp-cliente" value="${escapeHtml(p.cliente || "")}"></div>
     <div class="campo"><label>Descripción del negocio</label><textarea id="gp-descripcion" rows="2"></textarea></div>
     <div class="campo-fila">
-      <div class="campo"><label>Monto</label><input type="number" min="0" step="0.01" id="gp-monto"></div>
+      <div class="campo"><label>Monto</label><input type="number" min="0" step="0.01" id="gp-monto" value="${p.monto || ""}"></div>
       <div class="campo"><label>Moneda</label>
         <select id="gp-moneda"><option value="GTQ">GTQ</option><option value="USD">USD</option></select>
       </div>
@@ -610,6 +616,7 @@ function abrirFormGpnc() {
       moneda: document.getElementById("gp-moneda").value,
       fecha: document.getElementById("gp-fecha").value,
       observaciones: document.getElementById("gp-observaciones").value.trim(),
+      referenciaId: p.referenciaId || null,
       capituloId: capituloIdActivo
     };
     const msg = document.getElementById("form-gp-mensaje");
@@ -694,6 +701,427 @@ function abrirFormUnoAUno(registro) {
     cerrarPanel();
     await renderVista();
   });
+}
+
+// ---------- Referencias ----------
+async function renderReferencias(cont) {
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Referencias</div><div class="vista-sub">Referencias de negocio entre networkers</div></div>
+    <button class="btn-primario" id="btn-nueva-referencia">+ Nueva referencia</button></div>
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Fecha</th><th>Dada por</th><th>Recibida por</th><th>Cliente</th><th>Estado</th><th>Monto est.</th></tr></thead><tbody id="tabla-referencias"></tbody></table></div>`;
+
+  document.getElementById("btn-nueva-referencia").addEventListener("click", () => abrirFormReferencia(null));
+
+  const { ok, data } = await api(conCapitulo("/api/referencias"));
+  const tbody = document.getElementById("tabla-referencias");
+  if (!ok || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="estado-vacio">Todavía no hay referencias registradas.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((r) => `
+    <tr data-id="${r._id}" style="cursor:pointer;">
+      <td>${formatFecha(r.fecha)}</td>
+      <td>${escapeHtml(r.referenciaDadaPorTelefono)}</td>
+      <td>${escapeHtml(r.referenciaRecibidaPorTelefono)}</td>
+      <td>${escapeHtml(r.clienteReferido)}</td>
+      <td>${pill(r.estado, r.estado === "ganado" ? "miembro" : r.estado === "perdido" ? "descartado" : "prospecto")}</td>
+      <td>${formatMonto(r.montoEstimado)}</td>
+    </tr>`).join("");
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    tr.addEventListener("click", () => abrirFormReferencia(data.find((r) => r._id === tr.dataset.id)));
+  });
+}
+
+function abrirFormReferencia(referencia) {
+  const esEdicion = Boolean(referencia);
+  abrirPanel(esEdicion ? "Editar referencia" : "Nueva referencia", `
+    ${!esEdicion ? '<div class="campo"><label>Teléfono de quien recibe la referencia</label><input id="rf-recibe"></div>' : ""}
+    <div class="campo"><label>Cliente referido</label><input id="rf-cliente" value="${escapeHtml(referencia?.clienteReferido || "")}"></div>
+    <div class="campo-fila">
+      <div class="campo"><label>Teléfono del cliente</label><input id="rf-telefono" value="${escapeHtml(referencia?.telefonoCliente || "")}"></div>
+      <div class="campo"><label>Correo del cliente</label><input id="rf-correo" value="${escapeHtml(referencia?.correoCliente || "")}"></div>
+    </div>
+    <div class="campo"><label>Descripción</label><textarea id="rf-descripcion" rows="2">${escapeHtml(referencia?.descripcion || "")}</textarea></div>
+    <div class="campo-fila">
+      <div class="campo"><label>Estado</label>
+        <select id="rf-estado">${["pendiente", "contactado", "cotizado", "ganado", "perdido"].map((e) => `<option value="${e}" ${referencia?.estado === e ? "selected" : ""}>${e}</option>`).join("")}</select>
+      </div>
+      <div class="campo"><label>Monto estimado</label><input type="number" min="0" step="0.01" id="rf-monto" value="${referencia?.montoEstimado || ""}"></div>
+    </div>
+    <div class="campo"><label>Fecha de seguimiento</label><input type="date" id="rf-seguimiento" value="${referencia?.fechaSeguimiento ? new Date(referencia.fechaSeguimiento).toISOString().slice(0, 10) : ""}"></div>
+    <div class="campo"><label>Notas</label><textarea id="rf-notas" rows="2">${escapeHtml(referencia?.notas || "")}</textarea></div>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-referencia">Guardar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    ${esEdicion && referencia.estado === "ganado" ? '<button class="btn-secundario" id="btn-convertir-gpnc" style="margin-top:10px;width:100%;">Convertir en GPNC →</button>' : ""}
+    <p class="form-mensaje" id="form-rf-mensaje"></p>
+  `);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("btn-guardar-referencia").addEventListener("click", async () => {
+    const cuerpo = {
+      clienteReferido: document.getElementById("rf-cliente").value.trim(),
+      telefonoCliente: document.getElementById("rf-telefono").value.trim(),
+      correoCliente: document.getElementById("rf-correo").value.trim(),
+      descripcion: document.getElementById("rf-descripcion").value.trim(),
+      estado: document.getElementById("rf-estado").value,
+      montoEstimado: document.getElementById("rf-monto").value,
+      fechaSeguimiento: document.getElementById("rf-seguimiento").value || null,
+      notas: document.getElementById("rf-notas").value.trim(),
+      capituloId: capituloIdActivo
+    };
+    const msg = document.getElementById("form-rf-mensaje");
+    let ruta = "/api/referencias";
+    let metodo = "POST";
+    if (esEdicion) {
+      ruta = `/api/referencias/${referencia._id}`;
+      metodo = "PUT";
+    } else {
+      cuerpo.referenciaRecibidaPorTelefono = document.getElementById("rf-recibe").value.trim();
+    }
+    const { ok, data } = await api(ruta, { method: metodo, body: JSON.stringify(cuerpo) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    cerrarPanel();
+    await renderVista();
+  });
+  const btnConvertir = document.getElementById("btn-convertir-gpnc");
+  if (btnConvertir) {
+    btnConvertir.addEventListener("click", () => {
+      cerrarPanel();
+      abrirFormGpnc({
+        generoTelefono: referencia.referenciaDadaPorTelefono,
+        cliente: referencia.clienteReferido,
+        monto: referencia.montoEstimado,
+        referenciaId: referencia._id
+      });
+    });
+  }
+}
+
+// ---------- Calendario ----------
+async function renderCalendario(cont) {
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Calendario</div><div class="vista-sub">Reuniones, capacitaciones y seguimientos del capítulo</div></div>
+    <button class="btn-primario" id="btn-nuevo-evento">+ Nuevo evento</button></div>
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Fecha</th><th>Tipo</th><th>Título</th><th>Lugar / link</th><th></th></tr></thead><tbody id="tabla-agenda"></tbody></table></div>`;
+
+  document.getElementById("btn-nuevo-evento").addEventListener("click", () => abrirFormEvento(null));
+
+  const { ok, data } = await api(conCapitulo("/api/agenda?proximos=true"));
+  const tbody = document.getElementById("tabla-agenda");
+  if (!ok || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">No hay próximos eventos en el calendario.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((a) => `
+    <tr>
+      <td>${formatFecha(a.fecha)} ${escapeHtml(a.hora || "")}</td>
+      <td>${pill(a.tipo.replace(/_/g, " "), a.completado ? "activo" : "programado")}</td>
+      <td style="cursor:pointer;" data-id="${a._id}" class="td-editar-evento"><strong>${escapeHtml(a.titulo)}</strong></td>
+      <td>${escapeHtml(a.lugarOLink || "—")}</td>
+      <td style="text-align:right;"><button class="btn-secundario btn-eliminar-evento" data-id="${a._id}" style="padding:6px 12px;font-size:12px;">Eliminar</button></td>
+    </tr>`).join("");
+  tbody.querySelectorAll(".td-editar-evento").forEach((td) => {
+    td.addEventListener("click", () => abrirFormEvento(data.find((a) => a._id === td.dataset.id)));
+  });
+  tbody.querySelectorAll(".btn-eliminar-evento").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Eliminar este evento?")) return;
+      await api(`/api/agenda/${btn.dataset.id}`, { method: "DELETE" });
+      await renderVista();
+    });
+  });
+}
+
+const TIPOS_AGENDA = ["reunion_semanal", "uno_a_uno", "capacitacion", "lanzamiento", "regional", "seguimiento_referencia", "seguimiento_visitante", "otro"];
+
+function abrirFormEvento(evento) {
+  const esEdicion = Boolean(evento);
+  abrirPanel(esEdicion ? "Editar evento" : "Nuevo evento", `
+    <div class="campo"><label>Título</label><input id="ag-titulo" value="${escapeHtml(evento?.titulo || "")}"></div>
+    <div class="campo"><label>Tipo</label>
+      <select id="ag-tipo">${TIPOS_AGENDA.map((t) => `<option value="${t}" ${evento?.tipo === t ? "selected" : ""}>${t.replace(/_/g, " ")}</option>`).join("")}</select>
+    </div>
+    <div class="campo-fila">
+      <div class="campo"><label>Fecha</label><input type="date" id="ag-fecha" value="${evento?.fecha ? new Date(evento.fecha).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
+      <div class="campo"><label>Hora</label><input type="time" id="ag-hora" value="${escapeHtml(evento?.hora || "")}"></div>
+    </div>
+    <div class="campo"><label>Lugar o link</label><input id="ag-lugar" value="${escapeHtml(evento?.lugarOLink || "")}"></div>
+    <div class="campo"><label>Descripción</label><textarea id="ag-descripcion" rows="2">${escapeHtml(evento?.descripcion || "")}</textarea></div>
+    <label class="campo-checkbox" style="margin-bottom:16px;"><input type="checkbox" id="ag-completado" ${evento?.completado ? "checked" : ""}> Completado</label>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-evento">Guardar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-ag-mensaje"></p>
+  `);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("btn-guardar-evento").addEventListener("click", async () => {
+    const cuerpo = {
+      titulo: document.getElementById("ag-titulo").value.trim(),
+      tipo: document.getElementById("ag-tipo").value,
+      fecha: document.getElementById("ag-fecha").value,
+      hora: document.getElementById("ag-hora").value,
+      lugarOLink: document.getElementById("ag-lugar").value.trim(),
+      descripcion: document.getElementById("ag-descripcion").value.trim(),
+      completado: document.getElementById("ag-completado").checked,
+      capituloId: capituloIdActivo
+    };
+    const msg = document.getElementById("form-ag-mensaje");
+    const ruta = esEdicion ? `/api/agenda/${evento._id}` : "/api/agenda";
+    const { ok, data } = await api(ruta, { method: esEdicion ? "PUT" : "POST", body: JSON.stringify(cuerpo) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    cerrarPanel();
+    await renderVista();
+  });
+}
+
+// ---------- Capacitación ----------
+async function renderCapacitacion(cont) {
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Capacitación</div><div class="vista-sub">Material y sesiones de formación del capítulo</div></div>
+    <button class="btn-primario" id="btn-nueva-capacitacion">+ Nueva capacitación</button></div>
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Título</th><th>Instructor</th><th>Fecha</th><th>Tipo</th><th>Avance</th></tr></thead><tbody id="tabla-capacitacion"></tbody></table></div>`;
+
+  await cargarNetworkersCache();
+  document.getElementById("btn-nueva-capacitacion").addEventListener("click", () => abrirFormCapacitacion(null));
+
+  const { ok, data } = await api(conCapitulo("/api/capacitaciones"));
+  const tbody = document.getElementById("tabla-capacitacion");
+  if (!ok || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">Todavía no hay capacitaciones registradas.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((c) => {
+    const miembros = c.miembrosAsignados || [];
+    const completados = miembros.filter((m) => m.completado).length;
+    return `<tr data-id="${c._id}" style="cursor:pointer;">
+      <td><strong>${escapeHtml(c.titulo)}</strong></td>
+      <td>${escapeHtml(c.instructor || "—")}</td>
+      <td>${formatFecha(c.fecha)}</td>
+      <td>${escapeHtml(c.tipo)}</td>
+      <td>${miembros.length === 0 ? "—" : `${completados}/${miembros.length}`}</td>
+    </tr>`;
+  }).join("");
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    tr.addEventListener("click", () => abrirFormCapacitacion(data.find((c) => c._id === tr.dataset.id)));
+  });
+}
+
+async function cargarNetworkersCache() {
+  const { ok, data } = await api(conCapitulo("/api/networkers"));
+  return ok && Array.isArray(data) ? data : [];
+}
+
+async function abrirFormCapacitacion(capacitacion) {
+  const esEdicion = Boolean(capacitacion);
+  const networkers = await cargarNetworkersCache();
+  const asignados = new Map((capacitacion?.miembrosAsignados || []).map((m) => [m.telefono, m]));
+  abrirPanel(esEdicion ? "Editar capacitación" : "Nueva capacitación", `
+    <div class="campo"><label>Título</label><input id="cp-titulo" value="${escapeHtml(capacitacion?.titulo || "")}"></div>
+    <div class="campo-fila">
+      <div class="campo"><label>Instructor</label><input id="cp-instructor" value="${escapeHtml(capacitacion?.instructor || "")}"></div>
+      <div class="campo"><label>Duración</label><input id="cp-duracion" value="${escapeHtml(capacitacion?.duracion || "")}"></div>
+    </div>
+    <div class="campo-fila">
+      <div class="campo"><label>Fecha</label><input type="date" id="cp-fecha" value="${capacitacion?.fecha ? new Date(capacitacion.fecha).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
+      <div class="campo"><label>Tipo</label>
+        <select id="cp-tipo">${["video", "pdf", "link", "presencial", "virtual"].map((t) => `<option value="${t}" ${capacitacion?.tipo === t ? "selected" : ""}>${t}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="campo"><label>Archivo o enlace</label><input id="cp-enlace" value="${escapeHtml(capacitacion?.archivoOEnlace || "")}"></div>
+    <div class="campo"><label>Descripción</label><textarea id="cp-descripcion" rows="2">${escapeHtml(capacitacion?.descripcion || "")}</textarea></div>
+    <div class="campo"><label>Miembros asignados</label>
+      <div style="max-height:180px;overflow-y:auto;border:1px solid var(--gris-borde);border-radius:4px;padding:10px;">
+        ${networkers.map((n) => `<label class="campo-checkbox" style="margin-bottom:8px;">
+          <input type="checkbox" class="cp-miembro" value="${n.telefono}" ${asignados.has(n.telefono) ? "checked" : ""}>
+          ${escapeHtml(n.nombre)} ${asignados.get(n.telefono)?.completado ? "✅" : ""}
+        </label>`).join("") || "<p class='vista-sub'>No hay networkers en este capítulo.</p>"}
+      </div>
+    </div>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-capacitacion">Guardar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-cp-mensaje"></p>
+  `);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("btn-guardar-capacitacion").addEventListener("click", async () => {
+    const miembrosAsignados = Array.from(document.querySelectorAll(".cp-miembro:checked")).map((el) => el.value);
+    const cuerpo = {
+      titulo: document.getElementById("cp-titulo").value.trim(),
+      instructor: document.getElementById("cp-instructor").value.trim(),
+      duracion: document.getElementById("cp-duracion").value.trim(),
+      fecha: document.getElementById("cp-fecha").value,
+      tipo: document.getElementById("cp-tipo").value,
+      archivoOEnlace: document.getElementById("cp-enlace").value.trim(),
+      descripcion: document.getElementById("cp-descripcion").value.trim(),
+      miembrosAsignados,
+      capituloId: capituloIdActivo
+    };
+    const msg = document.getElementById("form-cp-mensaje");
+    const ruta = esEdicion ? `/api/capacitaciones/${capacitacion._id}` : "/api/capacitaciones";
+    const { ok, data } = await api(ruta, { method: esEdicion ? "PUT" : "POST", body: JSON.stringify(cuerpo) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    cerrarPanel();
+    await renderVista();
+  });
+}
+
+// ---------- Recursos ----------
+const CATEGORIAS_RECURSOS = ["BNI", "Capacitación", "Networking", "Ventas", "Marketing", "Inteligencia Artificial", "Herramientas"];
+let filtroCategoriaRecursoActivo = "";
+
+async function renderRecursos(cont) {
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Recursos</div><div class="vista-sub">Biblioteca de material del capítulo</div></div>
+    <button class="btn-primario" id="btn-nuevo-recurso">+ Nuevo recurso</button></div>
+    <div class="barra-acciones"><select id="filtro-categoria-recurso" style="padding:8px 12px;border:1px solid var(--gris-borde);border-radius:4px;">
+      <option value="">Todas las categorías</option>
+      ${CATEGORIAS_RECURSOS.map((c) => `<option value="${c}" ${filtroCategoriaRecursoActivo === c ? "selected" : ""}>${c}</option>`).join("")}
+    </select></div>
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Título</th><th>Categoría</th><th>Tipo</th><th>Enlace</th><th></th></tr></thead><tbody id="tabla-recursos"></tbody></table></div>`;
+
+  document.getElementById("btn-nuevo-recurso").addEventListener("click", () => abrirFormRecurso());
+  document.getElementById("filtro-categoria-recurso").addEventListener("change", async (e) => {
+    filtroCategoriaRecursoActivo = e.target.value;
+    await renderVista();
+  });
+
+  const categoria = filtroCategoriaRecursoActivo;
+  const ruta = categoria ? conCapitulo(`/api/recursos?categoria=${encodeURIComponent(categoria)}`) : conCapitulo("/api/recursos");
+  const { ok, data } = await api(ruta);
+  const tbody = document.getElementById("tabla-recursos");
+  if (!ok || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">Todavía no hay recursos guardados.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((r) => `
+    <tr>
+      <td><strong>${escapeHtml(r.titulo)}</strong>${r.descripcion ? `<div class="vista-sub">${escapeHtml(r.descripcion)}</div>` : ""}</td>
+      <td>${escapeHtml(r.categoria)}</td>
+      <td>${escapeHtml(r.tipo)}</td>
+      <td><a href="${escapeHtml(r.enlace)}" target="_blank" rel="noopener">Abrir →</a></td>
+      <td style="text-align:right;"><button class="btn-secundario btn-eliminar-recurso" data-id="${r._id}" style="padding:6px 12px;font-size:12px;">Eliminar</button></td>
+    </tr>`).join("");
+  tbody.querySelectorAll(".btn-eliminar-recurso").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Eliminar este recurso?")) return;
+      await api(`/api/recursos/${btn.dataset.id}`, { method: "DELETE" });
+      await renderVista();
+    });
+  });
+}
+
+function abrirFormRecurso() {
+  abrirPanel("Nuevo recurso", `
+    <div class="campo"><label>Título</label><input id="rc-titulo"></div>
+    <div class="campo-fila">
+      <div class="campo"><label>Categoría</label>
+        <select id="rc-categoria">${CATEGORIAS_RECURSOS.map((c) => `<option value="${c}">${c}</option>`).join("")}</select>
+      </div>
+      <div class="campo"><label>Tipo</label>
+        <select id="rc-tipo">${["link", "pdf", "video", "manual", "presentacion", "formulario"].map((t) => `<option value="${t}">${t}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="campo"><label>Enlace</label><input id="rc-enlace" placeholder="https://..."></div>
+    <div class="campo"><label>Descripción</label><textarea id="rc-descripcion" rows="2"></textarea></div>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-recurso">Guardar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-rc-mensaje"></p>
+  `);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("btn-guardar-recurso").addEventListener("click", async () => {
+    const cuerpo = {
+      titulo: document.getElementById("rc-titulo").value.trim(),
+      categoria: document.getElementById("rc-categoria").value,
+      tipo: document.getElementById("rc-tipo").value,
+      enlace: document.getElementById("rc-enlace").value.trim(),
+      descripcion: document.getElementById("rc-descripcion").value.trim(),
+      capituloId: capituloIdActivo
+    };
+    const msg = document.getElementById("form-rc-mensaje");
+    const { ok, data } = await api("/api/recursos", { method: "POST", body: JSON.stringify(cuerpo) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    cerrarPanel();
+    await renderVista();
+  });
+}
+
+// ---------- Asistencia ----------
+async function renderAsistencia(cont) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Asistencia</div><div class="vista-sub">Pase de lista por reunión</div></div></div>
+    <div class="campo-fila" style="max-width:320px;margin-bottom:18px;">
+      <div class="campo"><label>Fecha de la reunión</label><input type="date" id="as-fecha" value="${hoy}"></div>
+    </div>
+    <div class="tabla-wrap" style="margin-bottom:28px;"><table class="tabla-crm"><thead><tr><th>Networker</th><th>Asistió</th><th>Llegó tarde</th><th>Ausente</th><th>Sustituto</th></tr></thead><tbody id="tabla-asistencia"></tbody></table></div>
+    <button class="btn-primario" id="btn-guardar-asistencia">Guardar asistencia</button>
+    <p class="form-mensaje" id="form-as-mensaje"></p>
+    <div class="bloque-secundario" style="margin-top:36px;"><h3>Resumen de asistencia</h3><div id="as-resumen">Cargando…</div></div>`;
+
+  const networkers = await cargarNetworkersCache();
+  let registrosExistentes = [];
+
+  async function cargarFila() {
+    const fecha = document.getElementById("as-fecha").value;
+    const { ok, data } = await api(conCapitulo(`/api/asistencia?fechaReunion=${fecha}`));
+    registrosExistentes = ok ? data : [];
+    const porTelefono = new Map(registrosExistentes.map((r) => [r.telefono, r]));
+    const tbody = document.getElementById("tabla-asistencia");
+    if (networkers.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">No hay networkers en este capítulo.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = networkers.map((n) => {
+      const r = porTelefono.get(n.telefono) || {};
+      return `<tr data-telefono="${n.telefono}">
+        <td><strong>${escapeHtml(n.nombre)}</strong></td>
+        <td><input type="checkbox" class="as-asistio" ${r.asistio ? "checked" : ""}></td>
+        <td><input type="checkbox" class="as-tarde" ${r.llegoTarde ? "checked" : ""}></td>
+        <td><input type="checkbox" class="as-ausente" ${r.ausente ? "checked" : ""}></td>
+        <td><input type="checkbox" class="as-sustituto" ${r.envioSustituto ? "checked" : ""}></td>
+      </tr>`;
+    }).join("");
+  }
+
+  await cargarFila();
+  document.getElementById("as-fecha").addEventListener("change", cargarFila);
+
+  document.getElementById("btn-guardar-asistencia").addEventListener("click", async () => {
+    const fechaReunion = document.getElementById("as-fecha").value;
+    const registros = Array.from(document.querySelectorAll("#tabla-asistencia tr")).map((tr) => ({
+      telefono: tr.dataset.telefono,
+      asistio: tr.querySelector(".as-asistio").checked,
+      llegoTarde: tr.querySelector(".as-tarde").checked,
+      ausente: tr.querySelector(".as-ausente").checked,
+      envioSustituto: tr.querySelector(".as-sustituto").checked
+    }));
+    const msg = document.getElementById("form-as-mensaje");
+    const { ok, data } = await api("/api/asistencia", { method: "POST", body: JSON.stringify({ fechaReunion, registros, capituloId: capituloIdActivo }) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    msg.className = "form-mensaje ok";
+    msg.textContent = "Asistencia guardada.";
+    await renderResumenAsistencia();
+  });
+
+  await renderResumenAsistencia();
+}
+
+async function renderResumenAsistencia() {
+  const zona = document.getElementById("as-resumen");
+  if (!zona) return;
+  const networkers = await cargarNetworkersCache();
+  const nombrePorTelefono = new Map(networkers.map((n) => [n.telefono, n.nombre]));
+  const { ok, data } = await api(conCapitulo("/api/asistencia/resumen"));
+  if (!ok) { zona.innerHTML = `<p class="vista-sub">${escapeHtml(data.error || "No se pudo cargar el resumen.")}</p>`; return; }
+  if (data.ranking.length === 0) {
+    zona.innerHTML = `<p class="vista-sub">Todavía no hay asistencia registrada.</p>`;
+    return;
+  }
+  zona.innerHTML = `
+    <p class="vista-sub">Asistencia general del capítulo: <strong>${data.porcentajeGeneral}%</strong></p>
+    <ul class="ranking-lista">${data.ranking.map((r) => `<li><span>${escapeHtml(nombrePorTelefono.get(r.telefono) || r.telefono)}</span><span class="ranking-puntaje">${r.porcentaje}%</span></li>`).join("")}</ul>
+    ${data.alertas.length > 0 ? `<div class="etiquetas-faltantes" style="margin-top:14px;">${data.alertas.map((a) => `<span class="etiqueta-falta">⚠ ${escapeHtml(nombrePorTelefono.get(a.telefono) || a.telefono)}: ${a.porcentaje}%</span>`).join("")}</div>` : ""}
+  `;
 }
 
 iniciar();

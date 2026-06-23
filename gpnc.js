@@ -68,6 +68,9 @@ export async function handleCrearGpnc(request, env) {
       monto,
       moneda: texto(body.moneda) || "GTQ",
       observaciones: texto(body.observaciones),
+      // Si este GPNC viene de una referencia marcada como "ganado" (ver
+      // referencias.js), queda enlazado sin duplicar los datos del cliente.
+      referenciaId: texto(body.referenciaId) || null,
       creadoEn: ahora
     };
     const insertedId = await withGpnc(env, (collection) => collection.insertOne(registro).then((r) => r.insertedId));

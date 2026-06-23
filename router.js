@@ -56,6 +56,26 @@ import {
   handleResumenUnoAUno
 } from "./unoauno.js";
 import { handleResumenDashboard } from "./dashboard.js";
+import {
+  handleListReferencias,
+  handleCrearReferencia,
+  handleActualizarReferencia,
+  handleResumenReferencias
+} from "./referencias.js";
+import {
+  handleListAgenda,
+  handleCrearAgenda,
+  handleActualizarAgenda,
+  handleEliminarAgenda
+} from "./agenda.js";
+import {
+  handleListCapacitaciones,
+  handleCrearCapacitacion,
+  handleActualizarCapacitacion,
+  handleMarcarAvance
+} from "./capacitaciones.js";
+import { handleListRecursos, handleCrearRecurso, handleEliminarRecurso } from "./recursos.js";
+import { handleListAsistencia, handleGuardarAsistencia, handleResumenAsistencia } from "./asistencia.js";
 
 export async function enrutar(request, env) {
   const url = new URL(request.url);
@@ -164,6 +184,41 @@ export async function enrutar(request, env) {
   if (matchUnoAUnoId && metodo === "PUT") return handleActualizarUnoAUno(request, env, decodeURIComponent(matchUnoAUnoId[1]));
 
   if (pathname === "/api/dashboard/resumen" && metodo === "GET") return handleResumenDashboard(request, env);
+
+  if (pathname === "/api/referencias" && metodo === "GET") return handleListReferencias(request, env);
+  if (pathname === "/api/referencias" && metodo === "POST") return handleCrearReferencia(request, env);
+  if (pathname === "/api/referencias/resumen" && metodo === "GET") return handleResumenReferencias(request, env);
+
+  const matchReferenciaId = pathname.match(/^\/api\/referencias\/([^/]+)$/);
+  if (matchReferenciaId && metodo === "PUT") return handleActualizarReferencia(request, env, decodeURIComponent(matchReferenciaId[1]));
+
+  if (pathname === "/api/agenda" && metodo === "GET") return handleListAgenda(request, env);
+  if (pathname === "/api/agenda" && metodo === "POST") return handleCrearAgenda(request, env);
+
+  const matchAgendaId = pathname.match(/^\/api\/agenda\/([^/]+)$/);
+  if (matchAgendaId && metodo === "PUT") return handleActualizarAgenda(request, env, decodeURIComponent(matchAgendaId[1]));
+  if (matchAgendaId && metodo === "DELETE") return handleEliminarAgenda(request, env, decodeURIComponent(matchAgendaId[1]));
+
+  if (pathname === "/api/capacitaciones" && metodo === "GET") return handleListCapacitaciones(request, env);
+  if (pathname === "/api/capacitaciones" && metodo === "POST") return handleCrearCapacitacion(request, env);
+
+  const matchCapacitacionAvance = pathname.match(/^\/api\/capacitaciones\/([^/]+)\/avance\/([^/]+)$/);
+  if (matchCapacitacionAvance && metodo === "PATCH") {
+    return handleMarcarAvance(request, env, decodeURIComponent(matchCapacitacionAvance[1]), decodeURIComponent(matchCapacitacionAvance[2]));
+  }
+
+  const matchCapacitacionId = pathname.match(/^\/api\/capacitaciones\/([^/]+)$/);
+  if (matchCapacitacionId && metodo === "PUT") return handleActualizarCapacitacion(request, env, decodeURIComponent(matchCapacitacionId[1]));
+
+  if (pathname === "/api/recursos" && metodo === "GET") return handleListRecursos(request, env);
+  if (pathname === "/api/recursos" && metodo === "POST") return handleCrearRecurso(request, env);
+
+  const matchRecursoId = pathname.match(/^\/api\/recursos\/([^/]+)$/);
+  if (matchRecursoId && metodo === "DELETE") return handleEliminarRecurso(request, env, decodeURIComponent(matchRecursoId[1]));
+
+  if (pathname === "/api/asistencia" && metodo === "GET") return handleListAsistencia(request, env);
+  if (pathname === "/api/asistencia" && metodo === "POST") return handleGuardarAsistencia(request, env);
+  if (pathname === "/api/asistencia/resumen" && metodo === "GET") return handleResumenAsistencia(request, env);
 
   return env.ASSETS.fetch(request);
 }
