@@ -108,6 +108,10 @@ export async function handleCreateTarjeta(request, env) {
   const ahora = new Date();
   const tarjeta = {
     propietarioTelefono: sesion.telefono,
+    // Si quien crea la tarjeta pertenece a un capítulo (CRM BNI), la
+    // tarjeta queda vinculada a ese capítulo para reportes -- campo
+    // puramente aditivo, no afecta a quien no usa el CRM.
+    capituloId: sesion.capituloId || null,
     ...campos,
     imagenFrente,
     imagenReverso,
@@ -283,6 +287,7 @@ export async function handleEnviarTarjeta(request, env, id) {
     const ahora = new Date();
     const copia = {
       propietarioTelefono: telefonoReceptor,
+      capituloId: receptor.capituloId || null,
       nombre: tarjeta.nombre, empresa: tarjeta.empresa, cargo: tarjeta.cargo,
       telefono: tarjeta.telefono, telefonoNormalizado: tarjeta.telefonoNormalizado,
       email: tarjeta.email, sitioWeb: tarjeta.sitioWeb, notas: "",

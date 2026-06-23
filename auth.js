@@ -32,27 +32,40 @@ export async function handleRegistro(request, env) {
     let usuarioNuevo;
     await withUsuarios(env, async (collection) => {
       const existente = await collection.findOne({ telefono });
-      if (existente) {
+      // Una cuenta "completa" (con dpiHash) con ese teléfono ya no se puede
+      // volver a registrar. Pero un admin de capítulo puede haber creado de
+      // antemano un perfil de networker sin credenciales todavía (ver
+      // networkers.js) -- en ese caso, registrarse "completa" ese perfil
+      // (conserva capítulo, esfera, etc.) en vez de rechazarlo.
+      if (existente && existente.dpiHash) {
         throw new Error("Ya existe una cuenta con ese número de teléfono.");
       }
       const salt = generarSalt();
       const dpiHash = await hashConSalt(dpi, salt);
-      usuarioNuevo = {
-        telefono,
-        nombre,
-        dpiHash,
-        dpiSalt: salt,
-        rol: "usuario",
-        estado: "activo",
-        openaiApiKey: "",
-        fotoPerfil: "",
-        creadoEn: new Date(),
-        ultimoAcceso: new Date()
-      };
-      await collection.insertOne(usuarioNuevo);
+      if (existente) {
+        usuarioNuevo = { ...existente, nombre, dpiHash, dpiSalt: salt, ultimoAcceso: new Date() };
+        await collection.updateOne({ telefono }, { $set: { nombre, dpiHash, dpiSalt: salt, ultimoAcceso: new Date() } });
+      } else {
+        usuarioNuevo = {
+          telefono,
+          nombre,
+          dpiHash,
+          dpiSalt: salt,
+          rol: "usuario",
+          estado: "activo",
+          openaiApiKey: "",
+          fotoPerfil: "",
+          creadoEn: new Date(),
+          ultimoAcceso: new Date()
+        };
+        await collection.insertOne(usuarioNuevo);
+      }
     });
 
-    const token = await firmarSesion({ telefono, rol: "usuario", exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
+    const token = await firmarSesion(
+      { telefono, rol: usuarioNuevo.rol, capituloId: usuarioNuevo.capituloId || null, exp: Date.now() + SESION_DURACION_MS },
+      sessionSecret
+    );
     return jsonResponse(infoUsuarioPublica(usuarioNuevo), 201, { "Set-Cookie": cookieSesion(token) });
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
@@ -90,7 +103,10 @@ export async function handleLogin(request, env) {
 
     await withUsuarios(env, (collection) => collection.updateOne({ telefono }, { $set: { ultimoAcceso: new Date() } }));
 
-    const token = await firmarSesion({ telefono, rol: usuario.rol, exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
+    const token = await firmarSesion(
+      { telefono, rol: usuario.rol, capituloId: usuario.capituloId || null, exp: Date.now() + SESION_DURACION_MS },
+      sessionSecret
+    );
     return jsonResponse(infoUsuarioPublica(usuario), 200, { "Set-Cookie": cookieSesion(token) });
   } catch (error) {
     return jsonResponse({ error: "Error al iniciar sesión.", message: error.message }, 500);

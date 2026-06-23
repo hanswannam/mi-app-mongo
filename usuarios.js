@@ -14,6 +14,7 @@ export function infoUsuarioPublica(usuario) {
     telefono: usuario.telefono,
     nombre: usuario.nombre,
     rol: usuario.rol,
+    capituloId: usuario.capituloId || null,
     tieneApiKey: Boolean(usuario.openaiApiKey),
     fotoPerfil: usuario.fotoPerfil || ""
   };
@@ -121,7 +122,12 @@ export async function handleActualizarUsuario(request, env) {
     }
 
     const token = await firmarSesion(
-      { telefono: resultado.usuario.telefono, rol: resultado.usuario.rol, exp: Date.now() + SESION_DURACION_MS },
+      {
+        telefono: resultado.usuario.telefono,
+        rol: resultado.usuario.rol,
+        capituloId: resultado.usuario.capituloId || null,
+        exp: Date.now() + SESION_DURACION_MS
+      },
       sessionSecret
     );
     return jsonResponse(infoUsuarioPublica(resultado.usuario), 200, { "Set-Cookie": cookieSesion(token) });

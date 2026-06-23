@@ -20,6 +20,42 @@ import {
   handleCambiarRol,
   handleAdminEditarUsuario
 } from "./admin.js";
+import {
+  handleListCapitulos,
+  handleCrearCapitulo,
+  handleObtenerCapitulo,
+  handleActualizarCapitulo
+} from "./capitulos.js";
+import {
+  handleListNetworkers,
+  handleObtenerNetworker,
+  handleGuardarNetworker
+} from "./networkers.js";
+import {
+  handleListEsferas,
+  handleCrearEsfera,
+  handleEliminarEsfera,
+  handleCoberturaEsferas
+} from "./esferas.js";
+import {
+  handleListVisitantes,
+  handleCrearVisitante,
+  handleActualizarVisitante,
+  handleResumenVisitantes
+} from "./visitantes.js";
+import {
+  handleListGpnc,
+  handleCrearGpnc,
+  handleEliminarGpnc,
+  handleResumenGpnc
+} from "./gpnc.js";
+import {
+  handleListUnoAUno,
+  handleCrearUnoAUno,
+  handleActualizarUnoAUno,
+  handleResumenUnoAUno
+} from "./unoauno.js";
+import { handleResumenDashboard } from "./dashboard.js";
 
 export async function enrutar(request, env) {
   const url = new URL(request.url);
@@ -85,6 +121,49 @@ export async function enrutar(request, env) {
 
   const matchAdminUsuario = pathname.match(/^\/api\/admin\/usuarios\/([^/]+)$/);
   if (matchAdminUsuario && metodo === "PUT") return handleAdminEditarUsuario(request, env, decodeURIComponent(matchAdminUsuario[1]));
+
+  if (pathname === "/api/capitulos" && metodo === "GET") return handleListCapitulos(request, env);
+  if (pathname === "/api/capitulos" && metodo === "POST") return handleCrearCapitulo(request, env);
+
+  const matchCapituloId = pathname.match(/^\/api\/capitulos\/([^/]+)$/);
+  if (matchCapituloId && metodo === "GET") return handleObtenerCapitulo(request, env, decodeURIComponent(matchCapituloId[1]));
+  if (matchCapituloId && metodo === "PUT") return handleActualizarCapitulo(request, env, decodeURIComponent(matchCapituloId[1]));
+
+  if (pathname === "/api/networkers" && metodo === "GET") return handleListNetworkers(request, env);
+
+  const matchNetworkerTelefono = pathname.match(/^\/api\/networkers\/([^/]+)$/);
+  if (matchNetworkerTelefono && metodo === "GET") return handleObtenerNetworker(request, env, decodeURIComponent(matchNetworkerTelefono[1]));
+  if (matchNetworkerTelefono && metodo === "PUT") return handleGuardarNetworker(request, env, decodeURIComponent(matchNetworkerTelefono[1]));
+
+  if (pathname === "/api/esferas" && metodo === "GET") return handleListEsferas(request, env);
+  if (pathname === "/api/esferas" && metodo === "POST") return handleCrearEsfera(request, env);
+  if (pathname === "/api/esferas/cobertura" && metodo === "GET") return handleCoberturaEsferas(request, env);
+
+  const matchEsferaId = pathname.match(/^\/api\/esferas\/([^/]+)$/);
+  if (matchEsferaId && metodo === "DELETE") return handleEliminarEsfera(request, env, decodeURIComponent(matchEsferaId[1]));
+
+  if (pathname === "/api/visitantes" && metodo === "GET") return handleListVisitantes(request, env);
+  if (pathname === "/api/visitantes" && metodo === "POST") return handleCrearVisitante(request, env);
+  if (pathname === "/api/visitantes/resumen" && metodo === "GET") return handleResumenVisitantes(request, env);
+
+  const matchVisitanteId = pathname.match(/^\/api\/visitantes\/([^/]+)$/);
+  if (matchVisitanteId && metodo === "PUT") return handleActualizarVisitante(request, env, decodeURIComponent(matchVisitanteId[1]));
+
+  if (pathname === "/api/gpnc" && metodo === "GET") return handleListGpnc(request, env);
+  if (pathname === "/api/gpnc" && metodo === "POST") return handleCrearGpnc(request, env);
+  if (pathname === "/api/gpnc/resumen" && metodo === "GET") return handleResumenGpnc(request, env);
+
+  const matchGpncId = pathname.match(/^\/api\/gpnc\/([^/]+)$/);
+  if (matchGpncId && metodo === "DELETE") return handleEliminarGpnc(request, env, decodeURIComponent(matchGpncId[1]));
+
+  if (pathname === "/api/unoauno" && metodo === "GET") return handleListUnoAUno(request, env);
+  if (pathname === "/api/unoauno" && metodo === "POST") return handleCrearUnoAUno(request, env);
+  if (pathname === "/api/unoauno/resumen" && metodo === "GET") return handleResumenUnoAUno(request, env);
+
+  const matchUnoAUnoId = pathname.match(/^\/api\/unoauno\/([^/]+)$/);
+  if (matchUnoAUnoId && metodo === "PUT") return handleActualizarUnoAUno(request, env, decodeURIComponent(matchUnoAUnoId[1]));
+
+  if (pathname === "/api/dashboard/resumen" && metodo === "GET") return handleResumenDashboard(request, env);
 
   return env.ASSETS.fetch(request);
 }

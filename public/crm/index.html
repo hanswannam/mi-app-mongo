@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM BNI · Billetera Virtual</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/crm/styles.css">
+</head>
+<body>
+
+<div id="pantalla-login" class="login-wrap">
+  <div class="login-card">
+    <div class="login-marca">CRM <span>BNI</span></div>
+    <p class="login-sub">Plataforma de gestión para capítulos de networking.</p>
+    <form id="form-login">
+      <label>Teléfono</label>
+      <input type="tel" id="login-telefono" required autocomplete="username">
+      <label>DPI</label>
+      <input type="password" id="login-dpi" required autocomplete="current-password">
+      <button type="submit" class="btn-primario btn-block">Ingresar</button>
+      <p class="login-mensaje" id="login-mensaje"></p>
+    </form>
+    <a class="login-link-pwa" href="/">Soy networker y solo quiero mi tarjeta digital →</a>
+  </div>
+</div>
+
+<div id="app" class="app-shell" style="display:none;">
+  <aside class="sidebar">
+    <div class="sidebar-marca">CRM <span>BNI</span></div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-pie">
+      <button type="button" id="btn-logout" class="sidebar-logout">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="topbar-capitulo" id="topbar-capitulo">—</div>
+      <div class="topbar-usuario">
+        <span id="topbar-nombre"></span>
+        <span class="topbar-rol" id="topbar-rol"></span>
+      </div>
+    </header>
+    <main class="contenido" id="contenido"></main>
+  </div>
+</div>
+
+<script type="module" src="/crm/app.js"></script>
+</body>
+</html>

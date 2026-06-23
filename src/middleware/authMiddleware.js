@@ -24,6 +24,30 @@ export async function obtenerSesion(request, env) {
 export async function requerirAdmin(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return { error: jsonResponse({ error: "No autenticado." }, 401) };
-  if (sesion.rol !== "admin") return { error: jsonResponse({ error: "No tienes permisos de administrador." }, 403) };
+  if (!esSuperAdmin(sesion)) return { error: jsonResponse({ error: "No tienes permisos de administrador." }, 403) };
   return { sesion };
+}
+
+// --- Multi-capítulo (CRM) ---
+// "admin" se mantiene como rol equivalente a "superadmin" por compatibilidad
+// con las cuentas que ya existían antes del CRM -- nadie pierde acceso al
+// agregar este modelo de roles ampliado.
+const ROLES_SUPERADMIN = ["admin", "superadmin"];
+
+export function esSuperAdmin(sesion) {
+  return Boolean(sesion) && ROLES_SUPERADMIN.includes(sesion.rol);
+}
+
+// Igual que requerirAdmin, pero también deja pasar a un admin_capitulo
+// siempre que el capituloId que está administrando sea el suyo. Un
+// superadmin (o "admin" por compatibilidad) puede administrar cualquier
+// capítulo.
+export async function requerirAdminCapitulo(request, env, capituloId) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return { error: jsonResponse({ error: "No autenticado." }, 401) };
+  if (esSuperAdmin(sesion)) return { sesion };
+  if (sesion.rol === "admin_capitulo" && capituloId && sesion.capituloId === capituloId) {
+    return { sesion };
+  }
+  return { error: jsonResponse({ error: "No tienes permisos de administrador en este capítulo." }, 403) };
 }

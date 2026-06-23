@@ -151,6 +151,7 @@ export async function handleActivarInvitacion(request, env, token) {
     const telefonoTarjeta = invitacion.telefonoContacto || telefono;
     await withTarjetas(env, (collection) => collection.insertOne({
       propietarioTelefono: telefono,
+      capituloId: null,
       nombre, empresa: invitacion.empresaContacto || "", cargo: d.cargo || "",
       telefono: telefonoTarjeta, telefonoNormalizado: normalizarTelefono(telefonoTarjeta),
       email: d.email || "", sitioWeb: d.sitioWeb || "", notas: "",
@@ -164,7 +165,7 @@ export async function handleActivarInvitacion(request, env, token) {
 
     await withInvitaciones(env, (collection) => collection.updateOne({ token }, { $set: { estado: "aceptada", aceptadoEn: ahora } }));
 
-    const sesionToken = await firmarSesion({ telefono, rol: "usuario", exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
+    const sesionToken = await firmarSesion({ telefono, rol: "usuario", capituloId: null, exp: Date.now() + SESION_DURACION_MS }, sessionSecret);
     return jsonResponse(infoUsuarioPublica(usuarioNuevo), 201, { "Set-Cookie": cookieSesion(sesionToken) });
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
