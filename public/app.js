@@ -9,7 +9,7 @@ import { dibujarSparkline } from "./src/templates/sparkline.js";
 import { consultarSesionActual, iniciarSesion, registrarUsuario, cerrarSesion, solicitarRecuperacion } from "./src/auth.js";
 import { actualizarFotoPerfil, actualizarCuenta, guardarApiKey } from "./src/perfil.js";
 import { escanearImagen } from "./src/ocr.js";
-import { guardarTarjeta } from "./src/tarjetas.js";
+import { guardarTarjeta, obtenerTarjetas, obtenerDirectorio, obtenerTarjeta, invitarContacto } from "./src/tarjetas.js";
 
 // Captura de errores visible en pantalla (temporal, para diagnosticar sin
 // necesitar conectar el teléfono a una computadora). Si algo falla antes de
@@ -228,10 +228,10 @@ async function cargarCategorias() {
 // ---------- Carga de contactos ----------
 async function cargarContactos() {
   try {
-    const r = await fetchConLimite("/api/tarjetas", { cache: "no-store" });
-    if (r.status === 401) { mostrarAuth(); return; }
-    if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
-    contactos = await r.json();
+    const { status, ok, data } = await obtenerTarjetas();
+    if (status === 401) { mostrarAuth(); return; }
+    if (!ok) throw new Error(`El servidor respondió ${status}`);
+    contactos = data;
     renderInicio();
     if (document.getElementById("screen-contactos").style.display !== "none") renderContactosLista();
   } catch (error) {
@@ -242,10 +242,10 @@ async function cargarContactos() {
 
 async function cargarDirectorio() {
   try {
-    const r = await fetchConLimite("/api/directorio", { cache: "no-store" });
-    if (r.status === 401) { mostrarAuth(); return; }
-    if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
-    directorio = await r.json();
+    const { status, ok, data } = await obtenerDirectorio();
+    if (status === 401) { mostrarAuth(); return; }
+    if (!ok) throw new Error(`El servidor respondió ${status}`);
+    directorio = data;
   } catch (error) {
     console.error("cargarDirectorio:", error);
     directorio = [];
@@ -351,9 +351,7 @@ async function abrirDetalle(id, esDirectorio) {
   // tarjeta puntual.
   let c;
   try {
-    const r = await fetchConLimite(`/api/tarjetas/${id}`, { cache: "no-store" });
-    if (!r.ok) throw new Error();
-    c = await r.json();
+    c = await obtenerTarjeta(id);
   } catch {
     c = buscarContactoPorId(id);
   }
@@ -422,9 +420,7 @@ document.getElementById("btn-invitar-detalle").addEventListener("click", async (
   if (!detalleActualId) return;
   btn.disabled = true; btn.textContent = "Generando enlace...";
   try {
-    const r = await fetchConLimite(`/api/tarjetas/${detalleActualId}/invitar`, { method: "POST" });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "No se pudo generar la invitación.");
+    const data = await invitarContacto(detalleActualId);
     const mensaje = `Hola ${data.nombreContacto || ""}. Hemos digitalizado tu tarjeta de presentación. Ahora puedes administrar y actualizar tu información directamente. Activa tu cuenta aquí: ${data.link}`;
     const wa = whatsappUrl(data.telefonoContacto, mensaje);
     if (wa) window.open(wa, "_blank");
@@ -446,11 +442,11 @@ document.getElementById("btn-favorito-detalle").addEventListener("click", async 
   if (!c) return;
   const nuevoValor = !c.favorito;
   try {
-    const r = await fetch(`/api/tarjetas/${detalleActualId}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...datosTarjetaParaEnvio(c), favorito: nuevoValor, imagenFrente: "", imagenReverso: "", fotoPerfil: "" })
-    });
-    if (!r.ok) throw new Error("No se pudo actualizar.");
+    const { ok } = await guardarTarjeta(
+      { ...datosTarjetaParaEnvio(c), favorito: nuevoValor, imagenFrente: "", imagenReverso: "", fotoPerfil: "" },
+      detalleActualId
+    );
+    if (!ok) throw new Error("No se pudo actualizar.");
     c.favorito = nuevoValor;
     document.getElementById("btn-favorito-detalle").textContent = nuevoValor ? "★" : "☆";
     await cargarContactos();
