@@ -7,6 +7,7 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const withUnoAUno = (env, fn) => withCollection(env, "unoauno", fn);
 
@@ -33,6 +34,8 @@ function camposUnoAUno(body) {
 // Lista los 1 a 1 del capítulo. Filtro opcional ?telefono= para ver solo
 // los de un participante ("mis 1 a 1").
 export async function handleListUnoAUno(request, env) {
+  const denegado = await requerirModulo(request, env, "unoauno", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -56,6 +59,8 @@ export async function handleListUnoAUno(request, env) {
 }
 
 export async function handleCrearUnoAUno(request, env) {
+  const denegado = await requerirModulo(request, env, "unoauno", "crear");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
   if (!sesion.capituloId && !esSuperAdmin(sesion)) {
@@ -93,6 +98,8 @@ export async function handleCrearUnoAUno(request, env) {
 }
 
 export async function handleActualizarUnoAUno(request, env, id) {
+  const denegado = await requerirModulo(request, env, "unoauno", "editar");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 

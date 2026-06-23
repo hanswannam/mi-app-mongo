@@ -9,6 +9,7 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const withGpnc = (env, fn) => withCollection(env, "gpnc", fn);
 
@@ -17,6 +18,8 @@ function capituloDe(sesion, url) {
 }
 
 export async function handleListGpnc(request, env) {
+  const denegado = await requerirModulo(request, env, "gpnc", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -35,6 +38,8 @@ export async function handleListGpnc(request, env) {
 // Quien agradece (agradeceTelefono) es por defecto quien hace la petición --
 // un networker registrando el negocio que cerró gracias a otro miembro.
 export async function handleCrearGpnc(request, env) {
+  const denegado = await requerirModulo(request, env, "gpnc", "crear");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
   if (!sesion.capituloId && !esSuperAdmin(sesion)) {
@@ -81,6 +86,8 @@ export async function handleCrearGpnc(request, env) {
 }
 
 export async function handleEliminarGpnc(request, env, id) {
+  const denegado = await requerirModulo(request, env, "gpnc", "eliminar");
+  if (denegado) return denegado;
   const objectId = parseObjectId(id);
   if (!objectId) return jsonResponse({ error: "ID inválido." }, 400);
 

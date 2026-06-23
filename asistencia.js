@@ -11,6 +11,7 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const withAsistencia = (env, fn) => withCollection(env, "asistencia", fn);
 
@@ -19,6 +20,8 @@ function capituloDe(sesion, url) {
 }
 
 export async function handleListAsistencia(request, env) {
+  const denegado = await requerirModulo(request, env, "asistencia", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -41,6 +44,8 @@ export async function handleListAsistencia(request, env) {
 // body: { fechaReunion: "2026-06-23", registros: [{ telefono, asistio,
 // llegoTarde, ausente, envioSustituto, observaciones }, ...] }
 export async function handleGuardarAsistencia(request, env) {
+  const denegado = await requerirModulo(request, env, "asistencia", "crear");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
   if (!sesion.capituloId && !esSuperAdmin(sesion)) {

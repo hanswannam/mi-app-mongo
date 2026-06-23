@@ -11,6 +11,7 @@ import { texto } from "./src/utils/strings.js";
 import { normalizarUrl } from "./src/utils/validateUrl.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const withRecursos = (env, fn) => withCollection(env, "recursos", fn);
 
@@ -22,6 +23,8 @@ function capituloDe(sesion, url) {
 }
 
 export async function handleListRecursos(request, env) {
+  const denegado = await requerirModulo(request, env, "recursos", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -42,6 +45,8 @@ export async function handleListRecursos(request, env) {
 }
 
 export async function handleCrearRecurso(request, env) {
+  const denegado = await requerirModulo(request, env, "recursos", "crear");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
   if (!sesion.capituloId && !esSuperAdmin(sesion)) {
@@ -83,6 +88,8 @@ export async function handleCrearRecurso(request, env) {
 }
 
 export async function handleEliminarRecurso(request, env, id) {
+  const denegado = await requerirModulo(request, env, "recursos", "eliminar");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 

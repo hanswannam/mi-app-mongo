@@ -29,7 +29,8 @@ import {
 import {
   handleListNetworkers,
   handleObtenerNetworker,
-  handleGuardarNetworker
+  handleGuardarNetworker,
+  handleDirectorioPublico
 } from "./networkers.js";
 import {
   handleListEsferas,
@@ -41,7 +42,8 @@ import {
   handleListVisitantes,
   handleCrearVisitante,
   handleActualizarVisitante,
-  handleResumenVisitantes
+  handleResumenVisitantes,
+  handleAutoRegistroVisitante
 } from "./visitantes.js";
 import {
   handleListGpnc,
@@ -76,6 +78,13 @@ import {
 } from "./capacitaciones.js";
 import { handleListRecursos, handleCrearRecurso, handleEliminarRecurso } from "./recursos.js";
 import { handleListAsistencia, handleGuardarAsistencia, handleResumenAsistencia } from "./asistencia.js";
+import {
+  handleMisPermisos,
+  handleListCapituloModulos,
+  handleGuardarCapituloModulo,
+  handleListPermisosUsuario,
+  handleGuardarPermisoUsuario
+} from "./permisos.js";
 
 export async function enrutar(request, env) {
   const url = new URL(request.url);
@@ -165,6 +174,7 @@ export async function enrutar(request, env) {
   if (pathname === "/api/visitantes" && metodo === "GET") return handleListVisitantes(request, env);
   if (pathname === "/api/visitantes" && metodo === "POST") return handleCrearVisitante(request, env);
   if (pathname === "/api/visitantes/resumen" && metodo === "GET") return handleResumenVisitantes(request, env);
+  if (pathname === "/api/visitantes/auto-registro" && metodo === "POST") return handleAutoRegistroVisitante(request, env);
 
   const matchVisitanteId = pathname.match(/^\/api\/visitantes\/([^/]+)$/);
   if (matchVisitanteId && metodo === "PUT") return handleActualizarVisitante(request, env, decodeURIComponent(matchVisitanteId[1]));
@@ -219,6 +229,18 @@ export async function enrutar(request, env) {
   if (pathname === "/api/asistencia" && metodo === "GET") return handleListAsistencia(request, env);
   if (pathname === "/api/asistencia" && metodo === "POST") return handleGuardarAsistencia(request, env);
   if (pathname === "/api/asistencia/resumen" && metodo === "GET") return handleResumenAsistencia(request, env);
+
+  if (pathname === "/api/permisos/mis-permisos" && metodo === "GET") return handleMisPermisos(request, env);
+
+  const matchCapituloModulos = pathname.match(/^\/api\/capitulos\/([^/]+)\/modulos$/);
+  if (matchCapituloModulos && metodo === "GET") return handleListCapituloModulos(request, env, decodeURIComponent(matchCapituloModulos[1]));
+  if (matchCapituloModulos && metodo === "PUT") return handleGuardarCapituloModulo(request, env, decodeURIComponent(matchCapituloModulos[1]));
+
+  const matchPermisosUsuario = pathname.match(/^\/api\/usuarios\/([^/]+)\/permisos$/);
+  if (matchPermisosUsuario && metodo === "GET") return handleListPermisosUsuario(request, env, decodeURIComponent(matchPermisosUsuario[1]));
+  if (matchPermisosUsuario && metodo === "PUT") return handleGuardarPermisoUsuario(request, env, decodeURIComponent(matchPermisosUsuario[1]));
+
+  if (pathname === "/api/directorio-publico" && metodo === "GET") return handleDirectorioPublico(request, env);
 
   return env.ASSETS.fetch(request);
 }

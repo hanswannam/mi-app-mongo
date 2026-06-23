@@ -1,4 +1,4 @@
-const CACHE_NAME = "billetera-v6";
+const CACHE_NAME = "billetera-v7";
 const APP_SHELL = [
   "/manifest.json",
   "/icons/icon-192.png",
@@ -12,7 +12,7 @@ const APP_SHELL = [
 // de forma silenciosa entre una sesión y otra. app.js ahora se divide en
 // módulos bajo /src/ (mismo motivo: cualquier archivo de ahí es lógica de
 // la app, no un asset estático como un ícono).
-const RUTAS_DINAMICAS = ["/", "/app.js", "/admin", "/t", "/activar"];
+const RUTAS_DINAMICAS = ["/", "/app.js", "/admin", "/t", "/activar", "/directorio"];
 function esRutaDinamica(pathname) {
   return RUTAS_DINAMICAS.includes(pathname) || pathname.startsWith("/src/") || pathname.startsWith("/crm");
 }

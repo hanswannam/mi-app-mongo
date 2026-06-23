@@ -10,6 +10,9 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
+
+const withCapitulos = (env, fn) => withCollection(env, "capitulos", fn);
 
 const withVisitantes = (env, fn) => withCollection(env, "visitantes", fn);
 
@@ -41,6 +44,8 @@ function capituloDe(sesion, url) {
 // Lista visitantes del capítulo. Filtro opcional por quién invitó
 // (?invitadoPorTelefono=...) para la vista "mis visitantes" de un networker.
 export async function handleListVisitantes(request, env) {
+  const denegado = await requerirModulo(request, env, "visitantes", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -66,6 +71,8 @@ export async function handleListVisitantes(request, env) {
 // invitó; queda vinculado a su propio capítulo (de la sesión, no del body,
 // para que no se pueda registrar en un capítulo ajeno).
 export async function handleCrearVisitante(request, env) {
+  const denegado = await requerirModulo(request, env, "visitantes", "crear");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
   if (!sesion.capituloId && !esSuperAdmin(sesion)) {
@@ -98,6 +105,8 @@ export async function handleCrearVisitante(request, env) {
 }
 
 export async function handleActualizarVisitante(request, env, id) {
+  const denegado = await requerirModulo(request, env, "visitantes", "editar");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -165,5 +174,54 @@ export async function handleResumenVisitantes(request, env) {
     });
   } catch (error) {
     return jsonResponse({ error: "Error al consultar el resumen de visitantes.", message: error.message }, 500);
+  }
+}
+
+// Auto-registro público (sin sesión) desde /directorio.html: un visitante
+// se anota a sí mismo antes de la reunión. invitadoPorTelefono queda null
+// porque nadie de la plataforma lo invitó; origen distingue este caso del
+// registro hecho por un networker desde el CRM.
+export async function handleAutoRegistroVisitante(request, env) {
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
+
+  const capituloId = texto(body.capituloId);
+  const objectId = parseObjectId(capituloId);
+  if (!objectId) return jsonResponse({ error: "Capítulo inválido." }, 400);
+
+  const nombre = texto(body.nombre);
+  const telefono = soloDigitos(body.telefono);
+  if (!nombre) return jsonResponse({ error: "El nombre es obligatorio." }, 400);
+  if (!telefono) return jsonResponse({ error: "El teléfono es obligatorio." }, 400);
+
+  try {
+    const capitulo = await withCapitulos(env, (collection) => collection.findOne({ _id: objectId }));
+    if (!capitulo) return jsonResponse({ error: "Capítulo no encontrado." }, 404);
+
+    const ahora = new Date();
+    const visitante = {
+      nombre,
+      empresa: texto(body.empresa),
+      especialidad: "",
+      telefono,
+      whatsapp: telefono,
+      correo: "",
+      capituloId,
+      invitadoPorTelefono: null,
+      origen: "auto-registro",
+      fechaVisita: ahora,
+      asistio: false,
+      volvioAsistir: false,
+      aplico: false,
+      seConvirtioEnMiembro: false,
+      estado: "prospecto",
+      notas: "",
+      creadoEn: ahora,
+      actualizadoEn: ahora
+    };
+    const insertedId = await withVisitantes(env, (collection) => collection.insertOne(visitante).then((r) => r.insertedId));
+    return jsonResponse({ ok: true, _id: insertedId }, 201);
+  } catch (error) {
+    return jsonResponse({ error: "Error al registrar el visitante.", message: error.message }, 500);
   }
 }

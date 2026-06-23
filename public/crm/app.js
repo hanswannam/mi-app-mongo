@@ -2,12 +2,15 @@
 // Reutiliza las mismas cookies/sesión del Worker que la PWA de tarjetas;
 // es una superficie nueva, no toca nada de /public/app.js.
 
+import { whatsappUrl } from "../src/utils/contactLinks.js";
+
 let usuarioActual = null;
 let capitulosDisponibles = [];
 let capituloIdActivo = null;
 let capituloNombreActivo = "";
 let esferasCache = [];
 let vistaActiva = "dashboard";
+let misPermisos = {}; // { moduloKey: ["ver","crear",...] }, ver cargarMisPermisos()
 
 const SECCIONES = [
   { id: "dashboard", label: "Dashboard", icono: "📊" },
@@ -25,8 +28,26 @@ const SECCIONES = [
   { id: "asistencia", label: "Asistencia", icono: "✅" },
   { id: "metas", label: "Metas", icono: "🎯", proximamente: true },
   { id: "reportes", label: "Reportes", icono: "📈", proximamente: true },
-  { id: "configuracion", label: "Configuración", icono: "⚙️", proximamente: true }
+  { id: "configuracion", label: "Configuración", icono: "⚙️" }
 ];
+
+const NOMBRES_MODULO = {
+  dashboard: "Dashboard", networkers: "Networkers", tarjetas: "Tarjetas Digitales", esferas: "Esferas",
+  referencias: "Referencias", gpnc: "GPNC", unoauno: "Uno a Uno", visitantes: "Visitantes",
+  calendario: "Calendario", capacitacion: "Capacitación", recursos: "Recursos", asistencia: "Asistencia",
+  metas: "Metas", rankings: "Rankings", reportes: "Reportes"
+};
+
+// El módulo "capitulos" se controla aparte (soloSuperAdmin); para el resto,
+// el menú solo muestra lo que /api/permisos/mis-permisos diga que puede
+// "ver" -- ni el rol, ni el capítulo, ni un override por usuario lo tienen
+// bloqueado. Así el menú nunca muestra algo a lo que la URL respondería 403.
+function puedeVer(moduloKey) {
+  return (misPermisos[moduloKey] || []).includes("ver");
+}
+function puede(moduloKey, accion) {
+  return (misPermisos[moduloKey] || []).includes(accion);
+}
 
 // ---------- utilidades ----------
 function esSuperAdmin() {
@@ -133,11 +154,18 @@ document.getElementById("btn-logout").addEventListener("click", async () => {
   location.reload();
 });
 
+async function cargarMisPermisos() {
+  const { ok, data } = await api("/api/permisos/mis-permisos");
+  misPermisos = ok && data.permisos ? data.permisos : {};
+}
+
 async function mostrarApp() {
   document.getElementById("pantalla-login").style.display = "none";
   document.getElementById("app").style.display = "flex";
   document.getElementById("topbar-nombre").textContent = usuarioActual.nombre;
   document.getElementById("topbar-rol").textContent = usuarioActual.rol;
+
+  await cargarMisPermisos();
 
   if (esSuperAdmin()) {
     const { ok, data } = await api("/api/capitulos");
@@ -177,7 +205,7 @@ function renderTopbarCapitulo() {
 
 function renderSidebar() {
   const nav = document.getElementById("sidebar-nav");
-  nav.innerHTML = SECCIONES.filter((s) => !s.soloSuperAdmin || esSuperAdmin())
+  nav.innerHTML = SECCIONES.filter((s) => (!s.soloSuperAdmin || esSuperAdmin()) && (s.proximamente || puedeVer(s.id)))
     .map((s) => {
       const claseExtra = s.proximamente ? "proximamente" : (s.id === vistaActiva ? "activo" : "");
       return `<div class="sidebar-item ${claseExtra}" data-vista="${s.id}" title="${s.proximamente ? "Próximamente" : ""}">
@@ -215,7 +243,8 @@ async function renderVista() {
     calendario: renderCalendario,
     capacitacion: renderCapacitacion,
     recursos: renderRecursos,
-    asistencia: renderAsistencia
+    asistencia: renderAsistencia,
+    configuracion: renderConfiguracion
   };
   const fn = renderers[vistaActiva] || renderDashboard;
   await fn(cont);
@@ -331,31 +360,97 @@ async function cargarEsferasCache() {
   esferasCache = ok && Array.isArray(data) ? data : [];
 }
 
+function botonesRapidos(n) {
+  const wa = n.whatsapp || n.telefono ? whatsappUrl(n.whatsapp || n.telefono) : null;
+  const tel = n.telefono ? `tel:${n.telefono}` : null;
+  const mail = n.correo ? `mailto:${n.correo}` : null;
+  const tarjeta = n.tarjetaPublicaId ? `/t?id=${n.tarjetaPublicaId}` : null;
+  const boton = (href, icono, titulo, extra = "") => href
+    ? `<a class="btn-rapido" href="${href}" target="_blank" rel="noopener" title="${titulo}" ${extra}>${icono}</a>`
+    : `<span class="btn-rapido deshabilitado" title="${titulo} (sin datos)">${icono}</span>`;
+  return `<div class="acciones-rapidas">
+    ${boton(wa, "💬", "WhatsApp")}
+    ${boton(tel, "📞", "Llamar")}
+    ${boton(mail, "✉️", "Correo")}
+    ${boton(tarjeta, "💳", "Ver tarjeta")}
+    <button type="button" class="btn-rapido btn-copiar-link" data-link="${location.origin}${tarjeta || ""}" title="Copiar link" ${tarjeta ? "" : "disabled"}>🔗</button>
+  </div>`;
+}
+
+let networkersCache = [];
+
 async function renderNetworkers(cont) {
-  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Networkers</div><div class="vista-sub">Miembros del capítulo</div></div>
-    <button class="btn-primario" id="btn-nuevo-networker">+ Agregar networker</button></div>
-    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Nombre</th><th>Empresa</th><th>Esfera</th><th>Estado</th><th>Teléfono</th></tr></thead><tbody id="tabla-networkers"></tbody></table></div>`;
+  const puedeCrear = puede("networkers", "crear");
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Networkers</div><div class="vista-sub">Directorio de miembros del capítulo</div></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-secundario" id="btn-link-directorio">🔗 Copiar link del directorio público</button>
+      ${puedeCrear ? '<button class="btn-primario" id="btn-nuevo-networker">+ Agregar networker</button>' : ""}
+    </div></div>
+    <div class="barra-busqueda">
+      <input type="text" id="nw-buscar" placeholder="Buscar por nombre, empresa o especialidad...">
+      <select id="nw-filtro-esfera"><option value="">Todas las esferas</option></select>
+    </div>
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Nombre</th><th>Empresa</th><th>Esfera</th><th>Estado</th><th>Teléfono</th><th>Acciones rápidas</th></tr></thead><tbody id="tabla-networkers"></tbody></table></div>`;
+
+  document.getElementById("btn-link-directorio").addEventListener("click", async (e) => {
+    await navigator.clipboard.writeText(`${location.origin}/directorio?capituloId=${capituloIdActivo}`);
+    const btn = e.target;
+    const original = btn.textContent;
+    btn.textContent = "✅ Copiado";
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
 
   await cargarEsferasCache();
-  document.getElementById("btn-nuevo-networker").addEventListener("click", () => abrirFormNetworker(null));
+  document.getElementById("nw-filtro-esfera").innerHTML =
+    '<option value="">Todas las esferas</option>' + esferasCache.map((e) => `<option value="${e._id}">${escapeHtml(e.nombre)}</option>`).join("");
+
+  if (puedeCrear) document.getElementById("btn-nuevo-networker").addEventListener("click", () => abrirFormNetworker(null));
 
   const { ok, data } = await api(conCapitulo("/api/networkers"));
+  networkersCache = ok && Array.isArray(data) ? data : [];
+
+  const pintar = () => {
+    const texto = document.getElementById("nw-buscar").value.trim().toLowerCase();
+    const esfera = document.getElementById("nw-filtro-esfera").value;
+    const filtrados = networkersCache.filter((n) => {
+      const coincideTexto = !texto || [n.nombre, n.empresa, n.especialidad].some((v) => (v || "").toLowerCase().includes(texto));
+      const coincideEsfera = !esfera || n.esferaId === esfera;
+      return coincideTexto && coincideEsfera;
+    });
+    pintarTablaNetworkers(filtrados);
+  };
+
+  document.getElementById("nw-buscar").addEventListener("input", pintar);
+  document.getElementById("nw-filtro-esfera").addEventListener("change", pintar);
+  pintar();
+}
+
+function pintarTablaNetworkers(data) {
   const tbody = document.getElementById("tabla-networkers");
-  if (!ok || data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="estado-vacio">Todavía no hay networkers en este capítulo.</td></tr>`;
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="estado-vacio">No se encontraron networkers con ese filtro.</td></tr>`;
     return;
   }
   const esferaNombre = (id) => esferasCache.find((e) => e._id === id)?.nombre || "—";
   tbody.innerHTML = data.map((n) => `
-    <tr data-telefono="${n.telefono}" style="cursor:pointer;">
-      <td><strong>${escapeHtml(n.nombre)}</strong></td>
+    <tr data-telefono="${n.telefono}">
+      <td style="cursor:pointer;"><strong>${escapeHtml(n.nombre)}</strong></td>
       <td>${escapeHtml(n.empresa || "—")}</td>
       <td>${escapeHtml(esferaNombre(n.esferaId))}</td>
       <td>${pill(n.estadoNetworker || "prospecto", n.estadoNetworker || "prospecto")}</td>
       <td>${escapeHtml(n.telefono)}</td>
+      <td>${botonesRapidos(n)}</td>
     </tr>`).join("");
   tbody.querySelectorAll("tr").forEach((tr) => {
-    tr.addEventListener("click", () => abrirFormNetworker(data.find((n) => n.telefono === tr.dataset.telefono)));
+    tr.querySelector("td").addEventListener("click", () => abrirFormNetworker(networkersCache.find((n) => n.telefono === tr.dataset.telefono)));
+    const btnCopiar = tr.querySelector(".btn-copiar-link");
+    if (btnCopiar && !btnCopiar.disabled) {
+      btnCopiar.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(btnCopiar.dataset.link);
+        btnCopiar.textContent = "✅";
+        setTimeout(() => { btnCopiar.textContent = "🔗"; }, 1500);
+      });
+    }
   });
 }
 
@@ -1122,6 +1217,45 @@ async function renderResumenAsistencia() {
     <ul class="ranking-lista">${data.ranking.map((r) => `<li><span>${escapeHtml(nombrePorTelefono.get(r.telefono) || r.telefono)}</span><span class="ranking-puntaje">${r.porcentaje}%</span></li>`).join("")}</ul>
     ${data.alertas.length > 0 ? `<div class="etiquetas-faltantes" style="margin-top:14px;">${data.alertas.map((a) => `<span class="etiqueta-falta">⚠ ${escapeHtml(nombrePorTelefono.get(a.telefono) || a.telefono)}: ${a.porcentaje}%</span>`).join("")}</div>` : ""}
   `;
+}
+
+// ---------- Configuración (módulos activos del capítulo) ----------
+async function renderConfiguracion(cont) {
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Configuración</div><div class="vista-sub">Módulos activos para ${escapeHtml(capituloNombreActivo)}</div></div></div>
+    <p class="vista-sub" style="margin-bottom:18px;">Si apagas un módulo aquí, nadie de este capítulo podrá usarlo (ni aunque escriba la URL directamente), sin importar su rol.</p>
+    <div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th>Módulo</th><th>Estado</th><th></th></tr></thead><tbody id="tabla-config-modulos">Cargando…</tbody></table></div>`;
+
+  const { ok, data } = await api(`/api/capitulos/${capituloIdActivo}/modulos`);
+  const tbody = document.getElementById("tabla-config-modulos");
+  if (!ok) {
+    tbody.innerHTML = `<tr><td colspan="3" class="estado-vacio">${escapeHtml(data.error || "No se pudo cargar la configuración.")}</td></tr>`;
+    return;
+  }
+  const visibles = data.filter((m) => NOMBRES_MODULO[m.moduloKey]);
+  tbody.innerHTML = visibles.map((m) => `
+    <tr data-modulo="${m.moduloKey}">
+      <td><strong>${escapeHtml(NOMBRES_MODULO[m.moduloKey])}</strong></td>
+      <td>${m.activo ? pill("activo", "activo") : pill("desactivado", "suspendido")}</td>
+      <td style="text-align:right;">
+        <button class="btn-secundario btn-toggle-modulo" data-activo="${m.activo}" style="padding:6px 14px;font-size:12px;">
+          ${m.activo ? "Desactivar" : "Activar"}
+        </button>
+      </td>
+    </tr>`).join("");
+
+  tbody.querySelectorAll(".btn-toggle-modulo").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const tr = btn.closest("tr");
+      const moduloKey = tr.dataset.modulo;
+      const activoNuevo = btn.dataset.activo !== "true";
+      btn.disabled = true;
+      const { ok: okGuardar, data: dataGuardar } = await api(`/api/capitulos/${capituloIdActivo}/modulos`, {
+        method: "PUT", body: JSON.stringify({ moduloKey, activo: activoNuevo })
+      });
+      if (!okGuardar) { alert(dataGuardar.error || "No se pudo actualizar."); btn.disabled = false; return; }
+      await renderVista();
+    });
+  });
 }
 
 iniciar();

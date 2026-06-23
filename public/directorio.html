@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Directorio del capítulo · Billetera Virtual</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --azul-oscuro: #0F1B3D; --blanco: #FFFFFF; --gris-claro: #F4F6FA; --gris-borde: #E3E7EF;
+    --texto: #1B2333; --texto-claro: #6B7280; --dorado: #D9A441; --dorado-oscuro: #B9842A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--gris-claro); color: var(--texto); min-height: 100dvh;
+  }
+  header { background: var(--azul-oscuro); color: #fff; padding: 28px 20px; text-align: center; }
+  header h1 { margin: 0; font-size: 20px; font-weight: 800; }
+  header h1 span { color: var(--dorado); }
+  header p { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.7); }
+  .contenedor { max-width: 720px; margin: 0 auto; padding: 20px; }
+  .barra { display: flex; gap: 10px; margin-bottom: 18px; }
+  .barra input, .barra select { flex: 1; padding: 11px 12px; border: 1px solid var(--gris-borde); border-radius: 4px; font-size: 15px; }
+  .tarjeta-networker {
+    background: var(--blanco); border: 1px solid var(--gris-borde); border-radius: 6px; padding: 16px;
+    margin-bottom: 12px; display: flex; gap: 14px; align-items: center;
+  }
+  .avatar {
+    width: 52px; height: 52px; border-radius: 50%; background: var(--gris-claro); color: var(--texto-claro);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex-shrink: 0; overflow: hidden;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .info { flex: 1; min-width: 0; }
+  .info .nombre { font-weight: 700; font-size: 15px; }
+  .info .detalle { color: var(--texto-claro); font-size: 13px; margin-top: 2px; }
+  .acciones { display: flex; gap: 6px; flex-shrink: 0; }
+  .acciones a, .acciones span {
+    display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+    border-radius: 4px; border: 1px solid var(--gris-borde); text-decoration: none; font-size: 15px; color: var(--texto);
+  }
+  .acciones span.deshabilitado { opacity: 0.3; }
+  .estado-vacio { text-align: center; padding: 60px 20px; color: var(--texto-claro); }
+  .form-registro {
+    background: var(--blanco); border: 1px solid var(--gris-borde); border-radius: 6px; padding: 18px; margin-bottom: 22px;
+  }
+  .form-registro h2 { font-size: 15px; margin: 0 0 12px; }
+  .form-registro input { width: 100%; padding: 10px 12px; border: 1px solid var(--gris-borde); border-radius: 4px; margin-bottom: 10px; font-size: 14px; }
+  .form-registro button {
+    background: var(--dorado); color: var(--azul-oscuro); border: none; border-radius: 4px; padding: 11px 18px;
+    font-weight: 700; font-size: 14px; width: 100%; cursor: pointer;
+  }
+  .form-registro button:hover { background: var(--dorado-oscuro); }
+  .mensaje { font-size: 13px; margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Directorio <span>BNI</span></h1>
+    <p id="nombre-capitulo">Cargando capítulo...</p>
+  </header>
+  <div class="contenedor">
+    <div class="form-registro">
+      <h2>¿Vas a visitar una reunión? Regístrate aquí</h2>
+      <input type="text" id="reg-nombre" placeholder="Nombre completo">
+      <input type="text" id="reg-empresa" placeholder="Empresa (opcional)">
+      <input type="tel" id="reg-telefono" placeholder="Teléfono / WhatsApp">
+      <button type="button" id="btn-registrar">Registrarme como visitante</button>
+      <p class="mensaje" id="reg-mensaje"></p>
+    </div>
+
+    <div class="barra">
+      <input type="text" id="buscar" placeholder="Buscar por nombre, empresa o especialidad...">
+    </div>
+    <div id="lista">Cargando directorio...</div>
+  </div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const capituloId = params.get("capituloId");
+  let networkers = [];
+
+  function escapeHtml(v) {
+    return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function iniciales(nombre) {
+    return (nombre || "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
+  }
+  function whatsappUrl(telefono) {
+    const digitos = (telefono || "").replace(/\D/g, "");
+    if (!digitos) return null;
+    const conCodigo = digitos.length <= 8 ? `502${digitos}` : digitos;
+    return `https://wa.me/${conCodigo}`;
+  }
+
+  function pintar() {
+    const texto = document.getElementById("buscar").value.trim().toLowerCase();
+    const filtrados = networkers.filter((n) =>
+      !texto || [n.nombre, n.empresa, n.especialidad].some((v) => (v || "").toLowerCase().includes(texto))
+    );
+    const lista = document.getElementById("lista");
+    if (filtrados.length === 0) {
+      lista.innerHTML = `<div class="estado-vacio">No se encontraron networkers.</div>`;
+      return;
+    }
+    lista.innerHTML = filtrados.map((n) => {
+      const wa = whatsappUrl(n.whatsapp || n.telefono);
+      const tel = n.telefono ? `tel:${n.telefono}` : null;
+      const tarjeta = n.tarjetaPublicaId ? `/t?id=${n.tarjetaPublicaId}` : null;
+      const boton = (href, icono, titulo) => href
+        ? `<a href="${href}" target="_blank" rel="noopener" title="${titulo}">${icono}</a>`
+        : `<span class="deshabilitado" title="${titulo}">${icono}</span>`;
+      return `<div class="tarjeta-networker">
+        <div class="avatar">${n.fotoPerfil ? `<img src="${n.fotoPerfil}" alt="">` : iniciales(n.nombre)}</div>
+        <div class="info">
+          <div class="nombre">${escapeHtml(n.nombre)}</div>
+          <div class="detalle">${escapeHtml(n.empresa || n.especialidad || "")}</div>
+        </div>
+        <div class="acciones">
+          ${boton(wa, "💬", "WhatsApp")}
+          ${boton(tel, "📞", "Llamar")}
+          ${boton(tarjeta, "💳", "Ver tarjeta")}
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  async function iniciar() {
+    if (!capituloId) {
+      document.getElementById("nombre-capitulo").textContent = "Falta el capítulo en el enlace.";
+      document.getElementById("lista").innerHTML = "";
+      return;
+    }
+    try {
+      const rCap = await fetch(`/api/capitulos/${capituloId}`);
+      if (rCap.ok) {
+        const cap = await rCap.json();
+        document.getElementById("nombre-capitulo").textContent = `${cap.nombre} · ${cap.ciudad}, ${cap.pais}`;
+      } else {
+        document.getElementById("nombre-capitulo").textContent = "Capítulo";
+      }
+    } catch { document.getElementById("nombre-capitulo").textContent = "Capítulo"; }
+
+    try {
+      const r = await fetch(`/api/directorio-publico?capituloId=${encodeURIComponent(capituloId)}`);
+      const data = await r.json();
+      networkers = r.ok && Array.isArray(data) ? data : [];
+      pintar();
+    } catch {
+      document.getElementById("lista").innerHTML = `<div class="estado-vacio">No se pudo cargar el directorio.</div>`;
+    }
+  }
+
+  document.getElementById("buscar").addEventListener("input", pintar);
+  document.getElementById("btn-registrar").addEventListener("click", async () => {
+    const nombre = document.getElementById("reg-nombre").value.trim();
+    const empresa = document.getElementById("reg-empresa").value.trim();
+    const telefono = document.getElementById("reg-telefono").value.trim();
+    const msg = document.getElementById("reg-mensaje");
+    if (!nombre || !telefono) { msg.textContent = "Nombre y teléfono son obligatorios."; return; }
+    try {
+      const r = await fetch("/api/visitantes/auto-registro", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, empresa, telefono, capituloId })
+      });
+      const data = await r.json();
+      if (!r.ok) { msg.textContent = data.error || "No se pudo registrar."; return; }
+      msg.style.color = "#1E8E5A";
+      msg.textContent = "¡Listo! Te esperamos en la próxima reunión.";
+      document.getElementById("reg-nombre").value = "";
+      document.getElementById("reg-empresa").value = "";
+      document.getElementById("reg-telefono").value = "";
+    } catch {
+      msg.textContent = "No se pudo registrar. Intenta de nuevo.";
+    }
+  });
+
+  iniciar();
+</script>
+</body>
+</html>

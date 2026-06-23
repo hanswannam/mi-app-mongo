@@ -9,6 +9,7 @@ import { errorResponse } from "./src/utils/errorResponse.js";
 import { parseJson } from "./src/utils/parseJson.js";
 import { texto } from "./src/utils/strings.js";
 import { obtenerSesion, requerirAdminCapitulo, esSuperAdmin } from "./src/middleware/authMiddleware.js";
+import { requerirModulo } from "./permisos.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
 
 const withEsferas = (env, fn) => withCollection(env, "esferas", fn);
@@ -26,6 +27,9 @@ const ESFERAS_DEFECTO = [
 ];
 
 export async function handleListEsferas(request, env) {
+  const denegado = await requerirModulo(request, env, "esferas", "ver");
+  if (denegado) return denegado;
+
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -48,6 +52,9 @@ export async function handleListEsferas(request, env) {
 }
 
 export async function handleCrearEsfera(request, env) {
+  const denegado = await requerirModulo(request, env, "esferas", "crear");
+  if (denegado) return denegado;
+
   const { body, error: errorJson } = await parseJson(request);
   if (errorJson) return errorResponse(errorJson, 400);
 
@@ -74,6 +81,9 @@ export async function handleCrearEsfera(request, env) {
 }
 
 export async function handleEliminarEsfera(request, env, id) {
+  const denegado = await requerirModulo(request, env, "esferas", "eliminar");
+  if (denegado) return denegado;
+
   const objectId = parseObjectId(id);
   if (!objectId) return jsonResponse({ error: "ID inválido." }, 400);
 

@@ -10,6 +10,7 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const withReferencias = (env, fn) => withCollection(env, "referencias", fn);
 
@@ -35,6 +36,8 @@ function camposReferencia(body) {
 }
 
 export async function handleListReferencias(request, env) {
+  const denegado = await requerirModulo(request, env, "referencias", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -53,6 +56,8 @@ export async function handleListReferencias(request, env) {
 // Quien da la referencia (referenciaDadaPorTelefono) es quien hace la
 // petición; referenciaRecibidaPorTelefono es a quién se la está dando.
 export async function handleCrearReferencia(request, env) {
+  const denegado = await requerirModulo(request, env, "referencias", "crear");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
   if (!sesion.capituloId && !esSuperAdmin(sesion)) {
@@ -90,6 +95,8 @@ export async function handleCrearReferencia(request, env) {
 }
 
 export async function handleActualizarReferencia(request, env, id) {
+  const denegado = await requerirModulo(request, env, "referencias", "editar");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 

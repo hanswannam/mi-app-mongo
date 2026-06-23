@@ -7,6 +7,7 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const withCapacitaciones = (env, fn) => withCollection(env, "capacitaciones", fn);
 
@@ -30,6 +31,8 @@ function camposCapacitacion(body) {
 }
 
 export async function handleListCapacitaciones(request, env) {
+  const denegado = await requerirModulo(request, env, "capacitacion", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -46,6 +49,8 @@ export async function handleListCapacitaciones(request, env) {
 }
 
 export async function handleCrearCapacitacion(request, env) {
+  const denegado = await requerirModulo(request, env, "capacitacion", "crear");
+  if (denegado) return denegado;
   const { body, error: errorJson } = await parseJson(request);
   if (errorJson) return errorResponse(errorJson, 400);
 
@@ -73,6 +78,8 @@ export async function handleCrearCapacitacion(request, env) {
 }
 
 export async function handleActualizarCapacitacion(request, env, id) {
+  const denegado = await requerirModulo(request, env, "capacitacion", "editar");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 

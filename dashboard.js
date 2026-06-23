@@ -5,6 +5,7 @@
 import { jsonResponse } from "./src/utils/response.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const ESFERAS_DEFECTO = [
   "Inmobiliaria",
@@ -19,6 +20,8 @@ const ESFERAS_DEFECTO = [
 ];
 
 export async function handleResumenDashboard(request, env) {
+  const denegado = await requerirModulo(request, env, "dashboard", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 

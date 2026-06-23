@@ -10,6 +10,7 @@ import { parseJson } from "./src/utils/parseJson.js";
 import { texto } from "./src/utils/strings.js";
 import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { parseObjectId, withCollection } from "./lib/db.js";
+import { requerirModulo } from "./permisos.js";
 
 const withAgenda = (env, fn) => withCollection(env, "agenda", fn);
 
@@ -47,6 +48,8 @@ function camposAgenda(body) {
 // de fechas, para vistas de mes/semana) y ?proximos=true (solo futuros,
 // orden ascendente, para la lista de "próximos eventos").
 export async function handleListAgenda(request, env) {
+  const denegado = await requerirModulo(request, env, "calendario", "ver");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -76,6 +79,8 @@ export async function handleListAgenda(request, env) {
 }
 
 export async function handleCrearAgenda(request, env) {
+  const denegado = await requerirModulo(request, env, "calendario", "crear");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
   if (!sesion.capituloId && !esSuperAdmin(sesion)) {
@@ -102,6 +107,8 @@ export async function handleCrearAgenda(request, env) {
 }
 
 export async function handleActualizarAgenda(request, env, id) {
+  const denegado = await requerirModulo(request, env, "calendario", "editar");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
@@ -130,6 +137,8 @@ export async function handleActualizarAgenda(request, env, id) {
 }
 
 export async function handleEliminarAgenda(request, env, id) {
+  const denegado = await requerirModulo(request, env, "calendario", "eliminar");
+  if (denegado) return denegado;
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
 
