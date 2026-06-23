@@ -90,8 +90,17 @@ import {
   handleListUsuariosSistema,
   handleOpcionesRoles,
   handleGuardarUsuarioSistema,
-  handleCambiarEstadoUsuarioSistema
+  handleCambiarEstadoUsuarioSistema,
+  handleRestablecerPasswordUsuario,
+  handleVerComoUsuario,
+  handleSalirVerComo
 } from "./usuariosSistema.js";
+import {
+  handleListMensajes,
+  handleListMensajesEnviados,
+  handleCrearMensaje,
+  handleMarcarMensajeLeido
+} from "./mensajes.js";
 
 export async function enrutar(request, env) {
   const url = new URL(request.url);
@@ -258,8 +267,27 @@ export async function enrutar(request, env) {
     return handleCambiarEstadoUsuarioSistema(request, env, decodeURIComponent(matchUsuarioSistemaEstado[1]));
   }
 
+  const matchUsuarioSistemaPassword = pathname.match(/^\/api\/usuarios-sistema\/([^/]+)\/password$/);
+  if (matchUsuarioSistemaPassword && metodo === "PATCH") {
+    return handleRestablecerPasswordUsuario(request, env, decodeURIComponent(matchUsuarioSistemaPassword[1]));
+  }
+
+  const matchUsuarioSistemaVerComo = pathname.match(/^\/api\/usuarios-sistema\/([^/]+)\/ver-como$/);
+  if (matchUsuarioSistemaVerComo && metodo === "POST") {
+    return handleVerComoUsuario(request, env, decodeURIComponent(matchUsuarioSistemaVerComo[1]));
+  }
+
+  if (pathname === "/api/auth/salir-ver-como" && metodo === "POST") return handleSalirVerComo(request, env);
+
   const matchUsuarioSistema = pathname.match(/^\/api\/usuarios-sistema\/([^/]+)$/);
   if (matchUsuarioSistema && metodo === "PUT") return handleGuardarUsuarioSistema(request, env, decodeURIComponent(matchUsuarioSistema[1]));
+
+  if (pathname === "/api/mensajes" && metodo === "GET") return handleListMensajes(request, env);
+  if (pathname === "/api/mensajes" && metodo === "POST") return handleCrearMensaje(request, env);
+  if (pathname === "/api/mensajes/enviados" && metodo === "GET") return handleListMensajesEnviados(request, env);
+
+  const matchMensajeLeido = pathname.match(/^\/api\/mensajes\/([^/]+)\/leido$/);
+  if (matchMensajeLeido && metodo === "PATCH") return handleMarcarMensajeLeido(request, env, decodeURIComponent(matchMensajeLeido[1]));
 
   return env.ASSETS.fetch(request);
 }

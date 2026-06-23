@@ -27,6 +27,7 @@ const SECCIONES = [
   { id: "capacitacion", label: "Capacitación", icono: "🎓" },
   { id: "recursos", label: "Recursos", icono: "📚" },
   { id: "asistencia", label: "Asistencia", icono: "✅" },
+  { id: "mensajes", label: "Mensajes", icono: "📨" },
   { id: "metas", label: "Metas", icono: "🎯", proximamente: true },
   { id: "reportes", label: "Reportes", icono: "📈", proximamente: true },
   { id: "configuracion", label: "Configuración", icono: "⚙️" }
@@ -36,7 +37,7 @@ const NOMBRES_MODULO = {
   dashboard: "Dashboard", networkers: "Networkers", tarjetas: "Tarjetas Digitales", esferas: "Esferas",
   referencias: "Referencias", gpnc: "GPNC", unoauno: "Uno a Uno", visitantes: "Visitantes",
   calendario: "Calendario", capacitacion: "Capacitación", recursos: "Recursos", asistencia: "Asistencia",
-  metas: "Metas", rankings: "Rankings", reportes: "Reportes"
+  mensajes: "Mensajes", metas: "Metas", rankings: "Rankings", reportes: "Reportes"
 };
 
 // El módulo "capitulos" se controla aparte (soloSuperAdmin); para el resto,
@@ -201,6 +202,11 @@ document.getElementById("btn-logout").addEventListener("click", async () => {
   location.reload();
 });
 
+document.getElementById("btn-salir-ver-como").addEventListener("click", async () => {
+  await api("/api/auth/salir-ver-como", { method: "POST" });
+  location.reload();
+});
+
 // ---------- Menú lateral en celular (drawer) ----------
 function abrirSidebarMovil() {
   document.getElementById("sidebar").classList.add("abierto");
@@ -223,6 +229,7 @@ async function mostrarApp() {
   document.getElementById("app").style.display = "flex";
   document.getElementById("topbar-nombre").textContent = usuarioActual.nombre;
   document.getElementById("topbar-rol").textContent = usuarioActual.rol;
+  document.getElementById("banner-ver-como").style.display = usuarioActual.viendoComo ? "flex" : "none";
 
   await cargarMisPermisos();
 
@@ -336,7 +343,8 @@ async function renderVista() {
     capacitacion: renderCapacitacion,
     recursos: renderRecursos,
     asistencia: renderAsistencia,
-    configuracion: renderConfiguracion
+    configuracion: renderConfiguracion,
+    mensajes: renderMensajes
   };
   const fn = renderers[vistaActiva] || renderDashboard;
   await fn(cont);
@@ -493,6 +501,8 @@ async function renderUsuarios(cont) {
       <td>${u.estado === "suspendido" ? pill("suspendido", "suspendido") : pill("activo", "activo")}</td>
       <td style="text-align:right;">
         ${esRolDeSistema(u.rol) ? "" : `<button class="btn-secundario btn-permisos-usuario" style="padding:6px 12px;font-size:12px;">Permisos</button>`}
+        ${puede("usuarios", "editar") ? `<button class="btn-secundario btn-password-usuario" style="padding:6px 12px;font-size:12px;">🔑 Contraseña</button>` : ""}
+        ${(esSuperAdmin() || usuarioActual.rol === "admin_capitulo") && u.rol === "networker" ? `<button class="btn-secundario btn-vercomo-usuario" style="padding:6px 12px;font-size:12px;">👁️ Ver como</button>` : ""}
         ${puede("usuarios", "activar") ? `<button class="btn-secundario btn-toggle-estado-usuario" data-estado="${u.estado || "activo"}" style="padding:6px 12px;font-size:12px;">${u.estado === "suspendido" ? "Reactivar" : "Suspender"}</button>` : ""}
       </td>
     </tr>`).join("");
@@ -511,6 +521,24 @@ async function renderUsuarios(cont) {
         await renderVista();
       });
     }
+    const btnPassword = tr.querySelector(".btn-password-usuario");
+    if (btnPassword) {
+      btnPassword.addEventListener("click", (e) => {
+        e.stopPropagation();
+        abrirRestablecerPassword(data.find((x) => x.telefono === tr.dataset.telefono));
+      });
+    }
+    const btnVerComo = tr.querySelector(".btn-vercomo-usuario");
+    if (btnVerComo) {
+      btnVerComo.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const u = data.find((x) => x.telefono === tr.dataset.telefono);
+        if (!confirm(`Vas a entrar como ${u.nombre}. Para volver a tu cuenta usa el botón "Volver a mi cuenta" que aparecerá arriba. ¿Continuar?`)) return;
+        const { ok, data: dataVerComo } = await api(`/api/usuarios-sistema/${u.telefono}/ver-como`, { method: "POST" });
+        if (!ok) { alert(dataVerComo.error || "No se pudo cambiar de sesión."); return; }
+        location.reload();
+      });
+    }
     const btnPermisos = tr.querySelector(".btn-permisos-usuario");
     if (btnPermisos) {
       btnPermisos.addEventListener("click", (e) => {
@@ -519,6 +547,41 @@ async function renderUsuarios(cont) {
         abrirPermisosUsuario(u);
       });
     }
+  });
+}
+
+function generarPasswordAleatoria() {
+  return String(Math.floor(10000000 + Math.random() * 89999999));
+}
+
+function abrirRestablecerPassword(usuario) {
+  abrirPanel(`Restablecer contraseña de ${usuario.nombre}`, `
+    <p class="vista-sub" style="margin-bottom:16px;">No es posible ver la contraseña actual (se guarda de forma irreversible, igual que en cualquier sistema serio). Esto fija una nueva.</p>
+    <div class="campo">
+      <label>Nueva contraseña (DPI, mínimo 8 dígitos)</label>
+      <input id="pw-nueva" inputmode="numeric">
+    </div>
+    <button type="button" class="btn-secundario" id="btn-generar-password" style="margin-bottom:16px;">🎲 Generar automáticamente</button>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-password">Guardar nueva contraseña</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-pw-mensaje"></p>
+  `);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("btn-generar-password").addEventListener("click", () => {
+    document.getElementById("pw-nueva").value = generarPasswordAleatoria();
+  });
+  document.getElementById("btn-guardar-password").addEventListener("click", async () => {
+    const nuevaContrasena = document.getElementById("pw-nueva").value.trim();
+    const msg = document.getElementById("form-pw-mensaje");
+    if (nuevaContrasena.length < 8) { msg.className = "form-mensaje error"; msg.textContent = "Debe tener al menos 8 dígitos."; return; }
+    const { ok, data } = await api(`/api/usuarios-sistema/${usuario.telefono}/password`, {
+      method: "PATCH", body: JSON.stringify({ nuevaContrasena })
+    });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo restablecer."; return; }
+    msg.className = "form-mensaje ok";
+    msg.textContent = `Contraseña actualizada. Comunícale a ${usuario.nombre}: teléfono ${usuario.telefono}, contraseña ${nuevaContrasena}.`;
   });
 }
 
@@ -1565,6 +1628,100 @@ async function renderConfiguracion(cont) {
   });
 }
 
+// ---------- Mensajes ----------
+async function renderMensajes(cont) {
+  const puedeEnviar = puede("mensajes", "crear");
+  cont.innerHTML = `<div class="vista-header"><div><div class="vista-titulo">Mensajes</div><div class="vista-sub">Comunicados del capítulo</div></div>
+    ${puedeEnviar ? '<button class="btn-primario" id="btn-nuevo-mensaje">+ Nuevo mensaje</button>' : ""}</div>
+    <div id="lista-mensajes">Cargando…</div>`;
+
+  if (puedeEnviar) document.getElementById("btn-nuevo-mensaje").addEventListener("click", () => abrirFormMensaje());
+
+  const { ok, data } = await api("/api/mensajes");
+  const cont2 = document.getElementById("lista-mensajes");
+  if (!ok) { cont2.innerHTML = `<div class="estado-vacio">${escapeHtml(data.error || "No se pudo cargar.")}</div>`; return; }
+  if (data.length === 0) { cont2.innerHTML = `<div class="estado-vacio">📭 No tienes mensajes todavía.</div>`; return; }
+
+  cont2.innerHTML = `<div class="tabla-wrap"><table class="tabla-crm"><thead><tr><th></th><th>Asunto</th><th>De</th><th>Fecha</th></tr></thead><tbody id="tabla-mensajes"></tbody></table></div>`;
+  const tbody = document.getElementById("tabla-mensajes");
+  tbody.innerHTML = data.map((m) => `
+    <tr data-id="${m._id}" style="cursor:pointer;${m.leido ? "" : "font-weight:700;"}">
+      <td>${m.leido ? "" : pill("nuevo", "invitado")}</td>
+      <td>${escapeHtml(m.asunto)}</td>
+      <td>${escapeHtml(m.deTelefono)}</td>
+      <td>${formatFecha(m.creadoEn)}</td>
+    </tr>`).join("");
+
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    tr.addEventListener("click", async () => {
+      const m = data.find((x) => x._id === tr.dataset.id);
+      if (!m.leido) await api(`/api/mensajes/${m._id}/leido`, { method: "PATCH" });
+      abrirPanel(m.asunto, `
+        <p class="vista-sub" style="margin-bottom:14px;">De ${escapeHtml(m.deTelefono)} · ${formatFecha(m.creadoEn)}</p>
+        <p style="white-space:pre-wrap;line-height:1.6;">${escapeHtml(m.cuerpo)}</p>
+        <div class="panel-acciones"><button class="btn-secundario" id="btn-cancelar-panel">Cerrar</button></div>
+      `);
+      document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+      if (!m.leido) await renderVista();
+    });
+  });
+}
+
+async function abrirFormMensaje() {
+  const { ok: okEsf, data: esferas } = await api(conCapitulo("/api/esferas"));
+  const { ok: okNet, data: networkers } = await api(conCapitulo("/api/networkers"));
+  const listaEsferas = okEsf && Array.isArray(esferas) ? esferas : [];
+  const listaNetworkers = okNet && Array.isArray(networkers) ? networkers : [];
+
+  abrirPanel("Nuevo mensaje", `
+    <div class="campo"><label>Enviar a</label>
+      <select id="msg-destino-tipo">
+        <option value="todos">Todos los networkers del capítulo</option>
+        <option value="esfera">Una esfera específica</option>
+        <option value="individual">Un networker específico</option>
+      </select>
+    </div>
+    <div class="campo" id="msg-campo-esfera" style="display:none;"><label>Esfera</label>
+      <select id="msg-esfera">${listaEsferas.map((e) => `<option value="${e._id}">${escapeHtml(e.nombre)}</option>`).join("")}</select>
+    </div>
+    <div class="campo" id="msg-campo-networker" style="display:none;"><label>Networker</label>
+      <select id="msg-networker">${listaNetworkers.map((n) => `<option value="${n.telefono}">${escapeHtml(n.nombre)}</option>`).join("")}</select>
+    </div>
+    <div class="campo"><label>Asunto</label><input id="msg-asunto"></div>
+    <div class="campo"><label>Mensaje</label><textarea id="msg-cuerpo" rows="5"></textarea></div>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-enviar-mensaje">Enviar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-msg-mensaje"></p>
+  `);
+
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("msg-destino-tipo").addEventListener("change", (e) => {
+    document.getElementById("msg-campo-esfera").style.display = e.target.value === "esfera" ? "block" : "none";
+    document.getElementById("msg-campo-networker").style.display = e.target.value === "individual" ? "block" : "none";
+  });
+
+  document.getElementById("btn-enviar-mensaje").addEventListener("click", async () => {
+    const destinoTipo = document.getElementById("msg-destino-tipo").value;
+    const cuerpo = {
+      destinoTipo,
+      asunto: document.getElementById("msg-asunto").value.trim(),
+      cuerpo: document.getElementById("msg-cuerpo").value.trim(),
+      capituloId: capituloIdActivo
+    };
+    if (destinoTipo === "esfera") cuerpo.esferaId = document.getElementById("msg-esfera").value;
+    if (destinoTipo === "individual") cuerpo.destinatarioTelefono = document.getElementById("msg-networker").value;
+
+    const msg = document.getElementById("form-msg-mensaje");
+    if (!cuerpo.asunto || !cuerpo.cuerpo) { msg.className = "form-mensaje error"; msg.textContent = "Completa asunto y mensaje."; return; }
+    const { ok, data } = await api("/api/mensajes", { method: "POST", body: JSON.stringify(cuerpo) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo enviar."; return; }
+    cerrarPanel();
+    alert(`Mensaje enviado a ${data.totalDestinatarios} persona(s).`);
+  });
+}
+
 // ---------- Tour guiado ----------
 // Recorre solo los módulos que esta persona realmente puede ver (mismo
 // filtro que el menú lateral), así nadie ve un paso de un módulo al que
@@ -1586,6 +1743,7 @@ const DESCRIPCION_MODULO_TOUR = {
   capacitacion: "Material y sesiones de formación organizadas por el administrador del capítulo, con seguimiento del avance de cada persona.",
   recursos: "Biblioteca de enlaces útiles para el capítulo: manuales, plantillas, videos.",
   asistencia: "El control de asistencia a las reuniones, con el porcentaje de cada networker y alertas de baja asistencia.",
+  mensajes: "Comunicados del capítulo: el administrador puede escribirle a todos, a una esfera, o a un networker puntual.",
   configuracion: "Aquí el administrador puede prender o apagar módulos completos para todo el capítulo."
 };
 

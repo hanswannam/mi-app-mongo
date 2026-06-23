@@ -111,6 +111,13 @@ input, select, textarea { font-family: inherit; font-size: 15px; }
 .sidebar-logout:hover { color: #fff; }
 
 .main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.banner-ver-como {
+  background: var(--dorado); color: var(--azul-oscuro); padding: 10px 20px; font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; text-align: center;
+}
+.banner-ver-como button {
+  background: var(--azul-oscuro); color: #fff; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; font-weight: 700;
+}
 .topbar {
   height: 64px; flex-shrink: 0; background: var(--blanco); border-bottom: 1px solid var(--gris-borde);
   display: flex; align-items: center; justify-content: space-between; padding: 0 28px; gap: 14px;

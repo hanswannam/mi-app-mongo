@@ -153,7 +153,10 @@ export async function handleYo(request, env) {
     // /api/auth/yo se llama una vez por apertura de la app: es un buen punto,
     // sin saturar la base de datos, para registrar el último acceso real.
     await withUsuarios(env, (collection) => collection.updateOne({ telefono: sesion.telefono }, { $set: { ultimoAcceso: new Date() } }));
-    return jsonResponse(infoUsuarioPublica(usuario));
+    // viendoComo: true cuando un admin entró "como" esta persona (ver
+    // handleVerComoUsuario en usuariosSistema.js) -- el frontend del CRM
+    // usa esto para mostrar la barra "volver a mi cuenta".
+    return jsonResponse({ ...infoUsuarioPublica(usuario), viendoComo: Boolean(sesion.impersonadoPor) });
   } catch (error) {
     return jsonResponse({ error: "Error al consultar la sesión.", message: error.message }, 500);
   }

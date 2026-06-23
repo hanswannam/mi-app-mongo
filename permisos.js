@@ -20,7 +20,7 @@ import { withCollection } from "./lib/db.js";
 export const MODULOS = [
   "dashboard", "capitulos", "usuarios", "networkers", "tarjetas", "esferas",
   "referencias", "gpnc", "unoauno", "visitantes", "calendario", "capacitacion",
-  "recursos", "asistencia", "metas", "rankings", "reportes", "configuracion"
+  "recursos", "asistencia", "mensajes", "metas", "rankings", "reportes", "configuracion"
 ];
 
 export const ACCIONES = ["ver", "crear", "editar", "eliminar", "exportar", "activar"];
@@ -45,6 +45,7 @@ const MATRIZ_ROLES = {
     capacitacion: set("ver", "crear", "editar", "eliminar"),
     recursos: set("ver", "crear", "editar", "eliminar"),
     asistencia: set("ver", "crear", "editar", "exportar"),
+    mensajes: set("ver", "crear"),
     metas: set("ver", "crear", "editar"),
     rankings: set("ver"),
     reportes: set("ver", "exportar"),
@@ -64,6 +65,7 @@ const MATRIZ_ROLES = {
     capacitacion: set("ver"),
     recursos: set("ver"),
     asistencia: set("ver"),
+    mensajes: set("ver"),
     metas: set("ver"),
     rankings: set("ver")
   },
@@ -71,7 +73,8 @@ const MATRIZ_ROLES = {
     dashboard: set("ver"),
     capacitacion: set("ver", "crear", "editar"),
     recursos: set("ver"),
-    calendario: set("ver")
+    calendario: set("ver"),
+    mensajes: set("ver")
   },
   visitante: {
     capitulos: set("ver"),
