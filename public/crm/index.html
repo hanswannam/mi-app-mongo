@@ -13,18 +13,26 @@
 <body>
 
 <div id="pantalla-login" class="login-wrap">
-  <div class="login-card">
-    <div class="login-marca">CRM <span>BNI</span></div>
-    <p class="login-sub">Plataforma de gestión para capítulos de networking.</p>
-    <form id="form-login">
-      <label>Teléfono</label>
-      <input type="tel" id="login-telefono" required autocomplete="username">
-      <label>DPI</label>
-      <input type="password" id="login-dpi" required autocomplete="current-password">
-      <button type="submit" class="btn-primario btn-block">Ingresar</button>
-      <p class="login-mensaje" id="login-mensaje"></p>
-    </form>
-    <a class="login-link-pwa" href="/">Soy networker y solo quiero mi tarjeta digital →</a>
+  <div class="login-columna">
+    <div class="login-card">
+      <div class="login-marca">CRM <span>BNI</span></div>
+      <p class="login-sub">Plataforma de gestión para capítulos de networking.</p>
+      <form id="form-login">
+        <label>Teléfono</label>
+        <input type="tel" id="login-telefono" required autocomplete="username">
+        <label>DPI</label>
+        <input type="password" id="login-dpi" required autocomplete="current-password">
+        <button type="submit" class="btn-primario btn-block">Ingresar</button>
+        <p class="login-mensaje" id="login-mensaje"></p>
+      </form>
+      <a class="login-link-pwa" href="/">Soy networker y solo quiero mi tarjeta digital →</a>
+    </div>
+
+    <div class="demo-card">
+      <div class="demo-titulo">🧪 Cuentas de demostración (Capítulo EJEMPLO)</div>
+      <p class="demo-sub">Datos de prueba, no son networkers reales. Usa cualquiera para explorar el sistema por dentro.</p>
+      <div id="demo-lista"></div>
+    </div>
   </div>
 </div>
 

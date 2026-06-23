@@ -133,6 +133,52 @@ async function iniciar() {
 function mostrarLogin() {
   document.getElementById("pantalla-login").style.display = "flex";
   document.getElementById("app").style.display = "none";
+  renderCuentasDemo();
+}
+
+// Cuentas reales del capítulo de demostración "EJEMPLO" (datos ficticios,
+// no son networkers reales). Viven en la base como cualquier otra cuenta;
+// esta lista solo las muestra para que cualquiera pueda entrar a probar
+// el sistema sin tener que pedirle credenciales a alguien.
+const CUENTAS_DEMO = [
+  { nombre: "Ejemplo Admin EJEMPLO", rol: "Administrador de capítulo", telefono: "90000001", dpi: "1111111111111" },
+  { nombre: "Carlos Méndez", rol: "Networker · Construcción", telefono: "90000002", dpi: "2222222222222" },
+  { nombre: "Ana López", rol: "Networker · Legal", telefono: "90000003", dpi: "3333333333333" },
+  { nombre: "Roberto Díaz", rol: "Networker · Finanzas", telefono: "90000004", dpi: "4444444444444" },
+  { nombre: "María Fernández", rol: "Networker · Marketing", telefono: "90000005", dpi: "5555555555555" },
+  { nombre: "Jorge Ramírez", rol: "Networker · Tecnología", telefono: "90000006", dpi: "6666666666666" },
+  { nombre: "Lucía Morales", rol: "Networker · Inmobiliaria", telefono: "90000007", dpi: "7777777777777" }
+];
+
+function renderCuentasDemo() {
+  const cont = document.getElementById("demo-lista");
+  cont.innerHTML = CUENTAS_DEMO.map((c, i) => `
+    <div class="demo-fila">
+      <div class="demo-info">
+        <div class="demo-nombre">${escapeHtml(c.nombre)}</div>
+        <div class="demo-rol">${escapeHtml(c.rol)}</div>
+        <div class="demo-credenciales">Tel: ${c.telefono} · DPI: ${c.dpi}</div>
+      </div>
+      <div class="demo-botones">
+        <button type="button" class="btn-demo" data-i="${i}" data-accion="copiar">Copiar</button>
+        <button type="button" class="btn-demo" data-i="${i}" data-accion="usar">Usar</button>
+      </div>
+    </div>`).join("");
+
+  cont.querySelectorAll(".btn-demo").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const cuenta = CUENTAS_DEMO[Number(btn.dataset.i)];
+      if (btn.dataset.accion === "copiar") {
+        await navigator.clipboard.writeText(`Teléfono: ${cuenta.telefono}\nDPI: ${cuenta.dpi}`);
+        const original = btn.textContent;
+        btn.textContent = "✅ Copiado";
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      } else {
+        document.getElementById("login-telefono").value = cuenta.telefono;
+        document.getElementById("login-dpi").value = cuenta.dpi;
+      }
+    });
+  });
 }
 
 document.getElementById("form-login").addEventListener("submit", async (e) => {

@@ -32,12 +32,12 @@ input, select, textarea { font-family: inherit; font-size: 15px; }
   background: var(--azul-oscuro);
   padding: 24px;
 }
+.login-columna { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; }
 .login-card {
   background: var(--blanco);
   border-radius: 4px;
   padding: 40px 36px;
   width: 100%;
-  max-width: 380px;
 }
 .login-marca { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .login-marca span { color: var(--dorado-oscuro); }
@@ -53,6 +53,26 @@ input, select, textarea { font-family: inherit; font-size: 15px; }
   display: block; text-align: center; margin-top: 22px; font-size: 13px; color: var(--texto-claro); text-decoration: none;
 }
 .login-link-pwa:hover { color: var(--dorado-oscuro); }
+
+/* ---------- Cuentas de demostración (login del CRM) ---------- */
+.demo-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 20px 22px; }
+.demo-titulo { color: #fff; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.demo-sub { color: rgba(255,255,255,0.6); font-size: 12px; margin: 0 0 14px; }
+.demo-fila {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 0; border-top: 1px solid rgba(255,255,255,0.1);
+}
+.demo-fila:first-child { border-top: none; }
+.demo-info { min-width: 0; }
+.demo-nombre { color: #fff; font-size: 13px; font-weight: 600; }
+.demo-rol { color: var(--dorado); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.demo-credenciales { color: rgba(255,255,255,0.55); font-size: 12px; font-family: monospace; margin-top: 2px; }
+.demo-botones { display: flex; gap: 6px; flex-shrink: 0; }
+.btn-demo {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;
+  border-radius: 4px; padding: 6px 10px; font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.btn-demo:hover { background: var(--dorado); color: var(--azul-oscuro); border-color: var(--dorado); }
 
 .btn-primario {
   background: var(--dorado); color: var(--azul-oscuro); border: none; border-radius: 4px;
