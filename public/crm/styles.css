@@ -310,18 +310,23 @@ table.tabla-crm tr:hover td { background: #FAFBFD; }
 }
 .foto-perfil-preview img { width: 100%; height: 100%; object-fit: cover; }
 
-.tarjeta-preview {
-  display: flex; gap: 20px; align-items: flex-start; background: var(--azul-oscuro); color: #fff;
-  border-radius: 6px; padding: 22px; margin-bottom: 18px; flex-wrap: wrap;
+/* Muestras de tema: cada botón es un mini degradado del tema real, con un
+   punto del color de acento -- se ve de un vistazo, no hace falta texto. */
+.muestras-tema { display: flex; gap: 10px; margin-top: 4px; }
+.muestra-tema {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0; transition: transform .12s ease;
 }
-.tarjeta-preview-foto {
-  width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.15); overflow: hidden;
-  display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;
+.muestra-tema:hover { transform: scale(1.08); }
+.muestra-tema.seleccionada { border-color: var(--azul-oscuro); box-shadow: 0 0 0 2px var(--blanco), 0 0 0 4px var(--azul-oscuro); }
+.muestra-acento { width: 12px; height: 12px; border-radius: 50%; }
+
+/* La vista previa real es un iframe a /card/:slug -- es la misma pagina
+   que vera cualquiera con el link, nunca una copia aparte del diseno. */
+.tarjeta-preview-frame {
+  width: 100%; max-width: 380px; height: 640px; margin: 18px auto 0; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--gris-borde); box-shadow: 0 8px 24px rgba(15,23,42,0.1);
 }
-.tarjeta-preview-foto img { width: 100%; height: 100%; object-fit: cover; }
-.tarjeta-preview-info { flex: 1; min-width: 160px; }
-.tarjeta-preview-nombre { font-weight: 800; font-size: 17px; }
-.tarjeta-preview-detalle { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 2px; }
-.tarjeta-preview-qr { background: #fff; padding: 8px; border-radius: 6px; flex-shrink: 0; }
-.tarjeta-preview-link { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-.tarjeta-preview-link code { background: rgba(255,255,255,0.12); padding: 6px 10px; border-radius: 4px; font-size: 12px; word-break: break-all; }
+.tarjeta-preview-frame iframe { width: 100%; height: 100%; border: none; }
+.tarjeta-preview-link { display: flex; align-items: center; gap: 8px; margin: 14px 0; flex-wrap: wrap; justify-content: center; }
+.tarjeta-preview-link code { background: var(--gris-claro); padding: 6px 10px; border-radius: 4px; font-size: 12px; word-break: break-all; color: var(--texto); }

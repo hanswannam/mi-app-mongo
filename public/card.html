@@ -11,60 +11,107 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root {
-    --azul-oscuro: #0F1B3D; --blanco: #FFFFFF; --gris-claro: #F4F6FA; --gris-borde: #E3E7EF;
-    --texto: #1B2333; --texto-claro: #6B7280; --dorado: #D9A441; --dorado-oscuro: #B9842A;
+    --gris-pagina: #EEF1F6;
   }
+  /* ---------- Temas (color de marca del encabezado) ---------- */
+  [data-tema="bni"]        { --header-from:#0F1B3D; --header-to:#1B2A57; --acento:#D9A441; --acento-texto:#1A1300; }
+  [data-tema="esmeralda"]  { --header-from:#064E3B; --header-to:#0D9467; --acento:#34D399; --acento-texto:#052E22; }
+  [data-tema="electrico"]  { --header-from:#0C2D6B; --header-to:#1554C4; --acento:#38BDF8; --acento-texto:#07204D; }
+  [data-tema="editorial"]  { --header-from:#18181B; --header-to:#3F3F46; --acento:#F97316; --acento-texto:#1C1006; }
+  [data-tema="violeta"]    { --header-from:#3B0764; --header-to:#7E22CE; --acento:#F472B6; --acento-texto:#3B0764; }
+
+  /* ---------- Modo claro / oscuro (cuerpo de la tarjeta) ---------- */
+  [data-modo="claro"]  { --cuerpo-bg:#FFFFFF; --superficie:#F4F6FA; --texto:#1B2333; --texto-claro:#6B7280; --borde:#E3E7EF; }
+  [data-modo="oscuro"] { --cuerpo-bg:#15192B; --superficie:#1F2438; --texto:#F2F3F7; --texto-claro:#9AA1B5; --borde:#2B3148; --gris-pagina:#0B0E18; }
+
   * { box-sizing: border-box; }
+  html, body { margin: 0; }
   body {
-    margin: 0; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background: var(--gris-claro); color: var(--texto); min-height: 100dvh;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--gris-pagina); color: var(--texto); min-height: 100dvh;
     display: flex; align-items: center; justify-content: center; padding: 20px;
+    transition: background .25s ease;
   }
-  .card { width: 100%; max-width: 440px; }
-  .encabezado {
-    background: var(--azul-oscuro); color: #fff; border-radius: 14px 14px 0 0; padding: 28px 26px;
-    display: flex; gap: 16px; align-items: center;
+  .tarjeta {
+    width: 100%; max-width: 420px; border-radius: 22px; overflow: hidden;
+    box-shadow: 0 20px 50px rgba(15,23,42,0.18);
+    animation: aparecer .45s ease both;
   }
+  @keyframes aparecer { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+  .tarjeta-header {
+    position: relative; overflow: hidden; padding: 44px 26px 34px; text-align: center; color: #fff;
+    background: linear-gradient(135deg, var(--header-from), var(--header-to));
+  }
+  .blob { position: absolute; opacity: .28; background: var(--acento); filter: blur(1px); }
+  .blob-1 { width: 190px; height: 190px; top: -70px; right: -55px; border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%; }
+  .blob-2 { width: 150px; height: 150px; bottom: -75px; left: -45px; border-radius: 60% 40% 30% 70% / 50% 60% 40% 50%; }
+
+  .btn-modo {
+    position: absolute; top: 14px; right: 14px; z-index: 2; width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255,255,255,0.16); border: none; color: #fff; font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: background .15s ease;
+  }
+  .btn-modo:hover { background: rgba(255,255,255,0.28); }
+
+  .avatar-wrap { position: relative; z-index: 1; display: inline-block; padding: 4px; border-radius: 50%; background: var(--acento); margin-bottom: 14px; }
   .avatar {
-    width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.15); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden;
+    width: 92px; height: 92px; border-radius: 50%; overflow: hidden; border: 3px solid var(--header-from);
+    background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 700; color: #fff;
   }
   .avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .encabezado h1 { font-size: 19px; font-weight: 800; margin: 0; }
-  .encabezado .detalle { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 2px; }
+
+  .tarjeta-header h1 { position: relative; z-index: 1; font-size: 21px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .tarjeta-header .cargo { position: relative; z-index: 1; font-size: 13px; color: rgba(255,255,255,0.78); margin: 4px 0 0; }
   .pill-esfera {
-    display: inline-block; margin-top: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
-    background: var(--dorado); color: var(--azul-oscuro); border-radius: 999px; padding: 3px 10px; font-weight: 700;
+    position: relative; z-index: 1; display: inline-block; margin-top: 10px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; background: var(--acento); color: var(--acento-texto);
+    border-radius: 999px; padding: 4px 12px;
   }
-  .cuerpo { background: var(--blanco); border-radius: 0 0 14px 14px; padding: 26px; border: 1px solid var(--gris-borde); border-top: none; }
-  .acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-  .acciones a {
-    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none; color: var(--texto);
-    background: var(--gris-claro); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 9px 14px; font-weight: 600;
+
+  .tarjeta-cuerpo { background: var(--cuerpo-bg); padding: 26px; transition: background .25s ease, color .25s ease; }
+
+  .botones-contacto { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .botones-contacto a {
+    display: flex; align-items: center; gap: 8px; background: var(--superficie); border: 1px solid var(--borde);
+    border-radius: 12px; padding: 12px 13px; text-decoration: none; color: var(--texto); font-weight: 600;
+    font-size: 12.5px; transition: transform .12s ease;
   }
-  .descripcion { font-size: 14px; line-height: 1.6; color: var(--texto); margin-bottom: 18px; white-space: pre-wrap; }
-  .palabras-clave { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
-  .palabras-clave span { background: var(--gris-claro); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--texto-claro); }
-  .info-extra { font-size: 13px; color: var(--texto-claro); border-top: 1px solid var(--gris-borde); padding-top: 14px; margin-bottom: 14px; }
-  .info-extra div { margin-bottom: 4px; }
-  .redes { display: flex; gap: 10px; margin-bottom: 20px; }
-  .redes a {
-    width: 38px; height: 38px; border-radius: 50%; background: var(--gris-claro); display: flex;
-    align-items: center; justify-content: center; text-decoration: none;
+  .botones-contacto a:active { transform: scale(0.96); }
+  .botones-contacto svg, .redes-sociales svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+  .descripcion { font-size: 13.5px; line-height: 1.6; color: var(--texto); margin: 0 0 16px; white-space: pre-wrap; }
+  .palabras-clave { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .palabras-clave span { background: var(--superficie); border: 1px solid var(--borde); border-radius: 6px; padding: 4px 10px; font-size: 11.5px; color: var(--texto-claro); }
+
+  .info-extra { font-size: 12.5px; color: var(--texto-claro); border-top: 1px solid var(--borde); padding-top: 14px; margin-bottom: 16px; }
+  .info-extra div { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .info-extra svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .redes-sociales { display: flex; gap: 10px; margin-bottom: 20px; }
+  .redes-sociales a {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--superficie); border: 1px solid var(--borde);
+    display: flex; align-items: center; justify-content: center; text-decoration: none;
   }
-  .redes svg { width: 18px; height: 18px; }
-  .pie { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--gris-borde); padding-top: 18px; gap: 14px; }
-  .pie canvas { border-radius: 6px; }
-  .btn-compartir {
-    background: var(--dorado); color: var(--azul-oscuro); border: none; border-radius: 8px; padding: 10px 16px;
-    font-weight: 700; font-size: 13px; cursor: pointer;
+
+  .pie-acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .pie-acciones button {
+    padding: 13px; border-radius: 12px; font-weight: 700; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform .12s ease;
   }
-  .marca { text-align: center; margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--texto-claro); }
-  .placeholder-text { text-align: center; color: var(--texto-claro); padding: 40px 20px; background: var(--blanco); border-radius: 14px; }
+  .pie-acciones button:active { transform: scale(0.97); }
+  #btn-compartir { background: var(--acento); color: var(--acento-texto); border: none; }
+  #btn-guardar-contacto { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); }
+
+  .qr-box { display: flex; justify-content: center; padding: 16px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 14px; }
+  .marca { text-align: center; margin: 16px 0 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--texto-claro); }
+
+  .placeholder-text { text-align: center; color: var(--texto-claro); padding: 40px 24px; background: var(--cuerpo-bg); border-radius: 20px; max-width: 420px; }
 </style>
 </head>
-<body>
-  <div class="card" id="contenido"><p class="placeholder-text">Cargando tarjeta...</p></div>
+<body data-tema="bni" data-modo="claro">
+  <div id="contenido"><p class="placeholder-text">Cargando tarjeta...</p></div>
 
 <script>
   function escapeHtml(v) {
@@ -86,17 +133,56 @@
     return `https://${v}`;
   }
 
-  // Íconos reales de cada red (SVG inline, sin depender de que el emoji se
-  // vea igual en cada sistema -- así siempre es el logo correcto y no, por
-  // ejemplo, una cámara genérica en vez del logo de Instagram).
+  // Íconos reales (no emoji, mismo criterio que ya aplicamos en redes
+  // sociales): trazos simples tipo Lucide/Phosphor para llamar, correo y
+  // sitio web; logo de marca para WhatsApp.
+  const ICONOS = {
+    llamar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+    correo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
+    web: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    whatsapp: '<svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.149-.15.347-.347.52-.521.173-.174.231-.298.347-.5.118-.198.018-.382-.08-.521-.099-.148-.768-1.852-.973-2.395-.198-.526-.4-.413-.55-.413-.137 0-.297-.025-.456-.025-.16 0-.42.062-.642.286-.221.224-.847.83-.847 2.034 0 1.204.875 2.368 1.001 2.526.124.16 1.74 2.654 4.225 3.62 2.485.965 2.485.643 2.93.605.446-.038 1.44-.59 1.64-1.16.198-.57.198-1.06.149-1.16-.05-.1-.17-.16-.36-.26z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.9.527 3.673 1.44 5.187L2 22l4.94-1.385A9.94 9.94 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.18a8.16 8.16 0 0 1-4.166-1.14l-.298-.177-3.099.868.83-3.024-.196-.31A8.18 8.18 0 1 1 20.18 12 8.19 8.19 0 0 1 12 20.18z"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    reloj: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>'
+  };
   const ICONOS_RED = {
     facebook: '<svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>',
     instagram: '<svg viewBox="0 0 24 24" fill="#E4405F"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>',
     linkedin: '<svg viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.124 2.062 2.062 0 0 1 0 4.124zM7.114 20.452H3.558V9h3.556v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>',
     tiktok: '<svg viewBox="0 0 24 24" fill="#000000"><path d="M16.6 5.82s.51.5 0 0A4.278 4.278 0 0 1 15.54 3h-3.09v12.4a2.592 2.592 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48z"/></svg>'
   };
-  function iconoRedSocial(red) {
-    return ICONOS_RED[red];
+
+  let perfilActual = null;
+
+  function generarVCard(t) {
+    const lineas = [
+      "BEGIN:VCARD", "VERSION:3.0",
+      `FN:${t.nombre || ""}`,
+      t.empresa ? `ORG:${t.empresa}` : "",
+      t.cargo ? `TITLE:${t.cargo}` : "",
+      t.telefono ? `TEL;TYPE=CELL:${t.telefono}` : "",
+      t.correo ? `EMAIL:${t.correo}` : "",
+      t.sitioWeb ? `URL:${t.sitioWeb}` : "",
+      t.direccionComercial ? `ADR;TYPE=WORK:;;${t.direccionComercial}` : "",
+      "END:VCARD"
+    ].filter(Boolean);
+    return lineas.join("\n");
+  }
+
+  function descargarVCard(t) {
+    const blob = new Blob([generarVCard(t)], { type: "text/vcard;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${t.slug || "contacto"}.vcf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function pintarQr() {
+    if (!window.QRCode || !perfilActual) return;
+    const acento = getComputedStyle(document.body).getPropertyValue("--header-from").trim() || "#0F1B3D";
+    QRCode.toCanvas(document.getElementById("qr-canvas"), location.href, { width: 110, margin: 1, color: { dark: acento, light: "#FFFFFF" } });
   }
 
   async function cargar() {
@@ -118,56 +204,63 @@
       return;
     }
 
-    const detalle = [t.cargo, t.empresa].filter(Boolean).map(escapeHtml).join(" · ");
-    const ubicacion = [t.capituloNombre, t.especialidad].filter(Boolean).map(escapeHtml).join(" · ");
+    perfilActual = t;
+    document.body.dataset.tema = t.temaTarjeta || "bni";
+    document.body.dataset.modo = t.modoColorPreferido || "claro";
 
-    const acciones = [];
+    const detalle = [t.cargo, t.empresa].filter(Boolean).map(escapeHtml).join(" · ");
+
+    const botones = [];
     const wa = whatsappUrl(t.whatsapp || t.telefono);
-    if (wa) acciones.push(`<a href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
-    if (t.telefono) acciones.push(`<a href="tel:${escapeHtml(t.telefono)}">📞 Llamar</a>`);
-    if (t.correo) acciones.push(`<a href="mailto:${escapeHtml(t.correo)}">✉️ Correo</a>`);
+    if (wa) botones.push(`<a href="${wa}" target="_blank" rel="noopener">${ICONOS.whatsapp} WhatsApp</a>`);
+    if (t.telefono) botones.push(`<a href="tel:${escapeHtml(t.telefono)}">${ICONOS.llamar} Llamar</a>`);
+    if (t.correo) botones.push(`<a href="mailto:${escapeHtml(t.correo)}">${ICONOS.correo} Correo</a>`);
     const sitioWebUrl = normalizarUrl(t.sitioWeb);
-    if (sitioWebUrl) acciones.push(`<a href="${escapeHtml(sitioWebUrl)}" target="_blank" rel="noopener">🌐 Sitio web</a>`);
+    if (sitioWebUrl) botones.push(`<a href="${escapeHtml(sitioWebUrl)}" target="_blank" rel="noopener">${ICONOS.web} Sitio web</a>`);
 
     const redes = [];
-    const fb = normalizarUrl(t.facebook); if (fb) redes.push(`<a href="${escapeHtml(fb)}" target="_blank" rel="noopener" title="Facebook">${iconoRedSocial("facebook")}</a>`);
-    const ig = normalizarUrl(t.instagram); if (ig) redes.push(`<a href="${escapeHtml(ig)}" target="_blank" rel="noopener" title="Instagram">${iconoRedSocial("instagram")}</a>`);
-    const li = normalizarUrl(t.linkedin); if (li) redes.push(`<a href="${escapeHtml(li)}" target="_blank" rel="noopener" title="LinkedIn">${iconoRedSocial("linkedin")}</a>`);
-    const tt = normalizarUrl(t.tiktok); if (tt) redes.push(`<a href="${escapeHtml(tt)}" target="_blank" rel="noopener" title="TikTok">${iconoRedSocial("tiktok")}</a>`);
+    const fb = normalizarUrl(t.facebook); if (fb) redes.push(`<a href="${escapeHtml(fb)}" target="_blank" rel="noopener" title="Facebook">${ICONOS_RED.facebook}</a>`);
+    const ig = normalizarUrl(t.instagram); if (ig) redes.push(`<a href="${escapeHtml(ig)}" target="_blank" rel="noopener" title="Instagram">${ICONOS_RED.instagram}</a>`);
+    const li = normalizarUrl(t.linkedin); if (li) redes.push(`<a href="${escapeHtml(li)}" target="_blank" rel="noopener" title="LinkedIn">${ICONOS_RED.linkedin}</a>`);
+    const tt = normalizarUrl(t.tiktok); if (tt) redes.push(`<a href="${escapeHtml(tt)}" target="_blank" rel="noopener" title="TikTok">${ICONOS_RED.tiktok}</a>`);
 
     const palabras = (t.palabrasClave || "").split(",").map((p) => p.trim()).filter(Boolean);
+    const infoExtra = [];
+    if (t.direccionComercial) infoExtra.push(`<div>${ICONOS.pin} ${escapeHtml(t.direccionComercial)}</div>`);
+    if (t.horarioAtencion) infoExtra.push(`<div>${ICONOS.reloj} ${escapeHtml(t.horarioAtencion)}</div>`);
 
     contenedor.innerHTML = `
-      <div class="encabezado">
-        <div class="avatar">${t.fotoPerfil ? `<img src="${t.fotoPerfil}" alt="">` : iniciales(t.nombre)}</div>
-        <div>
+      <div class="tarjeta">
+        <div class="tarjeta-header">
+          <div class="blob blob-1"></div>
+          <div class="blob blob-2"></div>
+          <button type="button" class="btn-modo" id="btn-modo-toggle" title="Cambiar modo claro/oscuro">🌗</button>
+          <div class="avatar-wrap"><div class="avatar">${t.fotoPerfil ? `<img src="${t.fotoPerfil}" alt="">` : iniciales(t.nombre)}</div></div>
           <h1>${escapeHtml(t.nombre)}</h1>
-          ${detalle ? `<div class="detalle">${detalle}</div>` : ""}
-          ${ubicacion ? `<div class="detalle">${ubicacion}</div>` : ""}
+          ${detalle ? `<p class="cargo">${detalle}</p>` : ""}
           ${t.esferaNombre ? `<span class="pill-esfera">${escapeHtml(t.esferaNombre)}</span>` : ""}
         </div>
-      </div>
-      <div class="cuerpo">
-        ${acciones.length ? `<div class="acciones">${acciones.join("")}</div>` : ""}
-        ${t.descripcionServicios ? `<p class="descripcion">${escapeHtml(t.descripcionServicios)}</p>` : ""}
-        ${palabras.length ? `<div class="palabras-clave">${palabras.map((p) => `<span>${escapeHtml(p)}</span>`).join("")}</div>` : ""}
-        ${t.direccionComercial || t.horarioAtencion ? `<div class="info-extra">
-          ${t.direccionComercial ? `<div>📍 ${escapeHtml(t.direccionComercial)}</div>` : ""}
-          ${t.horarioAtencion ? `<div>🕒 ${escapeHtml(t.horarioAtencion)}</div>` : ""}
-        </div>` : ""}
-        ${redes.length ? `<div class="redes">${redes.join("")}</div>` : ""}
-        <div class="pie">
-          <button type="button" class="btn-compartir" id="btn-compartir">📤 Compartir</button>
-          <canvas id="qr-canvas"></canvas>
+        <div class="tarjeta-cuerpo">
+          ${botones.length ? `<div class="botones-contacto">${botones.join("")}</div>` : ""}
+          ${t.descripcionServicios ? `<p class="descripcion">${escapeHtml(t.descripcionServicios)}</p>` : ""}
+          ${palabras.length ? `<div class="palabras-clave">${palabras.map((p) => `<span>${escapeHtml(p)}</span>`).join("")}</div>` : ""}
+          ${infoExtra.length ? `<div class="info-extra">${infoExtra.join("")}</div>` : ""}
+          ${redes.length ? `<div class="redes-sociales">${redes.join("")}</div>` : ""}
+          <div class="pie-acciones">
+            <button type="button" id="btn-compartir">📤 Compartir</button>
+            <button type="button" id="btn-guardar-contacto">⬇️ Guardar contacto</button>
+          </div>
+          <div class="qr-box"><canvas id="qr-canvas"></canvas></div>
         </div>
       </div>
       <p class="marca">CRM BNI · Billetera Virtual</p>
     `;
 
-    if (window.QRCode) {
-      QRCode.toCanvas(document.getElementById("qr-canvas"), location.href, { width: 80, margin: 1, color: { dark: "#0F1B3D" } });
-    }
+    pintarQr();
 
+    document.getElementById("btn-modo-toggle").addEventListener("click", () => {
+      document.body.dataset.modo = document.body.dataset.modo === "oscuro" ? "claro" : "oscuro";
+    });
     document.getElementById("btn-compartir").addEventListener("click", async () => {
       const datos = { title: t.nombre, text: `Tarjeta digital de ${t.nombre}`, url: location.href };
       if (navigator.share) {
@@ -176,6 +269,7 @@
       await navigator.clipboard.writeText(location.href);
       alert("Link copiado al portapapeles.");
     });
+    document.getElementById("btn-guardar-contacto").addEventListener("click", () => descargarVCard(t));
   }
 
   cargar();

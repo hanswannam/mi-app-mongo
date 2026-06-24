@@ -235,7 +235,7 @@ const PROYECCION_CARD_PUBLICO = {
   nombre: 1, empresa: 1, cargo: 1, especialidad: 1, categoriaBNI: 1, esferaId: 1, capituloId: 1,
   telefono: 1, whatsapp: 1, correo: 1, sitioWeb: 1, facebook: 1, instagram: 1, linkedin: 1, tiktok: 1,
   fotoPerfil: 1, logoEmpresa: 1, direccionComercial: 1, descripcionServicios: 1, palabrasClave: 1,
-  horarioAtencion: 1, slug: 1, tarjetaDigitalActiva: 1
+  horarioAtencion: 1, slug: 1, tarjetaDigitalActiva: 1, temaTarjeta: 1, modoColorPreferido: 1
 };
 
 // Tarjeta digital pública del networker (/card/:slug). A diferencia de

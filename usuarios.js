@@ -12,6 +12,8 @@ import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js"
 import { withUsuarios, withTarjetas, withCollection, parseObjectId } from "./lib/db.js";
 
 const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TEMAS_TARJETA_VALIDOS = ["bni", "esmeralda", "electrico", "editorial", "violeta"];
+const MODOS_COLOR_VALIDOS = ["claro", "oscuro"];
 
 export function infoUsuarioPublica(usuario) {
   return {
@@ -236,6 +238,11 @@ export async function handleActualizarMiPerfil(request, env) {
   if (body.horarioAtencion !== undefined) cambios.horarioAtencion = texto(body.horarioAtencion);
   if (logoEmpresa !== undefined) cambios.logoEmpresa = logoEmpresa;
   if (esSuperAdmin(sesion) && body.capituloId !== undefined) cambios.capituloId = texto(body.capituloId) || null;
+
+  const temaTarjeta = texto(body.temaTarjeta).toLowerCase();
+  if (body.temaTarjeta !== undefined) cambios.temaTarjeta = TEMAS_TARJETA_VALIDOS.includes(temaTarjeta) ? temaTarjeta : "bni";
+  const modoColor = texto(body.modoColorPreferido).toLowerCase();
+  if (body.modoColorPreferido !== undefined) cambios.modoColorPreferido = MODOS_COLOR_VALIDOS.includes(modoColor) ? modoColor : "claro";
 
   if (!cambios.nombre && cambios.nombre !== undefined) {
     return jsonResponse({ error: "El nombre no puede quedar vacío." }, 400);

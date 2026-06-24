@@ -2073,6 +2073,17 @@ async function renderMiPerfil(cont) {
   await renderTarjetaMiPerfil(perfil);
 }
 
+const TEMAS_TARJETA = [
+  { id: "bni", nombre: "BNI Clásico", from: "#0F1B3D", to: "#1B2A57", acento: "#D9A441" },
+  { id: "esmeralda", nombre: "Esmeralda", from: "#064E3B", to: "#0D9467", acento: "#34D399" },
+  { id: "electrico", nombre: "Eléctrico", from: "#0C2D6B", to: "#1554C4", acento: "#38BDF8" },
+  { id: "editorial", nombre: "Editorial", from: "#18181B", to: "#3F3F46", acento: "#F97316" },
+  { id: "violeta", nombre: "Violeta", from: "#3B0764", to: "#7E22CE", acento: "#F472B6" }
+];
+
+// La vista previa es un iframe a la propia tarjeta pública -- nunca se
+// desincroniza de lo que ve cualquiera con el link, porque es literalmente
+// la misma página, no una copia del diseño mantenida por separado.
 async function renderTarjetaMiPerfil(perfilArg) {
   const zona = document.getElementById("mp-tarjeta-zona");
   const { ok, data: perfil } = perfilArg ? { ok: true, data: perfilArg } : await api("/api/mi-perfil");
@@ -2084,30 +2095,55 @@ async function renderTarjetaMiPerfil(perfilArg) {
   }
 
   const enlace = `${location.origin}/card/${perfil.slug}`;
+  const temaActual = perfil.temaTarjeta || "bni";
+  const modoActual = perfil.modoColorPreferido || "claro";
+
   zona.innerHTML = `
-    <div class="tarjeta-preview">
-      <div class="tarjeta-preview-foto">${perfil.fotoPerfil ? `<img src="${perfil.fotoPerfil}" alt="">` : "🧑"}</div>
-      <div class="tarjeta-preview-info">
-        <div class="tarjeta-preview-nombre">${escapeHtml(perfil.nombre)}</div>
-        <div class="tarjeta-preview-detalle">${escapeHtml(perfil.cargo || perfil.especialidad || "")} ${perfil.empresa ? "· " + escapeHtml(perfil.empresa) : ""}</div>
-        <div class="tarjeta-preview-detalle">${escapeHtml(perfil.capituloNombre || "")} ${perfil.esferaNombre ? "· " + escapeHtml(perfil.esferaNombre) : ""}</div>
-        <div class="tarjeta-preview-link">
-          <code>${escapeHtml(enlace)}</code>
-        </div>
+    <div class="campo">
+      <label>Tema de color</label>
+      <div class="muestras-tema" id="muestras-tema">
+        ${TEMAS_TARJETA.map((t) => `
+          <button type="button" class="muestra-tema ${t.id === temaActual ? "seleccionada" : ""}" data-tema="${t.id}" title="${escapeHtml(t.nombre)}"
+            style="background:linear-gradient(135deg, ${t.from}, ${t.to});">
+            <span class="muestra-acento" style="background:${t.acento};"></span>
+          </button>`).join("")}
       </div>
-      <div class="tarjeta-preview-qr"><canvas id="mp-qr-canvas"></canvas></div>
+    </div>
+    <div class="campo-checkbox" style="margin-bottom:18px;">
+      <input type="checkbox" id="mp-modo-oscuro" ${modoActual === "oscuro" ? "checked" : ""}>
+      <label for="mp-modo-oscuro" style="margin:0;">Mostrar mi tarjeta en modo oscuro</label>
+    </div>
+    <div class="tarjeta-preview-frame">
+      <iframe id="mp-iframe-preview" src="${enlace}" title="Vista previa de tu tarjeta"></iframe>
+    </div>
+    <div class="tarjeta-preview-link">
+      <code>${escapeHtml(enlace)}</code>
     </div>
     <div class="panel-acciones">
       <button type="button" class="btn-secundario" id="mp-btn-copiar-link">🔗 Copiar link</button>
       <button type="button" class="btn-secundario" id="mp-btn-descargar-qr">⬇️ Descargar QR</button>
       <a class="btn-primario" href="${enlace}" target="_blank" rel="noopener" style="text-decoration:none;">Ver tarjeta pública →</a>
     </div>
+    <canvas id="mp-qr-canvas" style="display:none;"></canvas>
   `;
 
+  const guardarApariencia = async (cambios) => {
+    await api("/api/mi-perfil", { method: "PUT", body: JSON.stringify(cambios) });
+    document.getElementById("mp-iframe-preview").src = enlace; // recarga para reflejar el cambio
+  };
+  document.querySelectorAll(".muestra-tema").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      document.querySelectorAll(".muestra-tema").forEach((b) => b.classList.remove("seleccionada"));
+      btn.classList.add("seleccionada");
+      await guardarApariencia({ temaTarjeta: btn.dataset.tema });
+    });
+  });
+  document.getElementById("mp-modo-oscuro").addEventListener("change", async (e) => {
+    await guardarApariencia({ modoColorPreferido: e.target.checked ? "oscuro" : "claro" });
+  });
+
   if (await asegurarQRCode()) {
-    QRCode.toCanvas(document.getElementById("mp-qr-canvas"), enlace, { width: 130, margin: 1, color: { dark: "#0F1B3D" } });
-  } else {
-    document.querySelector(".tarjeta-preview-qr").innerHTML = "QR no disponible";
+    QRCode.toCanvas(document.getElementById("mp-qr-canvas"), enlace, { width: 280, margin: 1, color: { dark: "#0F1B3D" } });
   }
 
   document.getElementById("mp-btn-copiar-link").addEventListener("click", async (e) => {
