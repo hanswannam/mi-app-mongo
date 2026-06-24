@@ -12,7 +12,8 @@ import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { obtenerSesion, requerirAdminCapitulo, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { requerirModulo } from "./permisos.js";
-import { withUsuarios, withTarjetas } from "./lib/db.js";
+import { generarSlugBase } from "./src/utils/slug.js";
+import { withUsuarios, withTarjetas, withCollection, parseObjectId } from "./lib/db.js";
 
 const ESTADOS_NETWORKER_VALIDOS = ["activo", "invitado", "suspendido", "prospecto"];
 const PROYECCION_SIN_CREDENCIALES = { dpiHash: 0, dpiSalt: 0, openaiApiKey: 0 };
@@ -181,6 +182,10 @@ export async function handleGuardarNetworker(request, env, telefonoParam) {
       // solo por asignarlo a un capítulo como networker.
       const rolNuevo = existente.rol === "admin" || existente.rol === "superadmin" ? existente.rol : "networker";
       const cambios = { ...campos, capituloId, rol: rolNuevo, actualizadoEn: ahora };
+      // Solo se toca si el formulario lo manda explícitamente -- si no, se
+      // deja como estaba (evita que editar cualquier otro campo reactive
+      // sin querer una tarjeta que el admin había desactivado).
+      if (body.tarjetaDigitalActiva !== undefined) cambios.tarjetaDigitalActiva = Boolean(body.tarjetaDigitalActiva);
       await withUsuarios(env, (collection) => collection.updateOne({ telefono }, { $set: cambios }));
       return jsonResponse({ telefono, ...cambios });
     }
@@ -191,6 +196,7 @@ export async function handleGuardarNetworker(request, env, telefonoParam) {
       capituloId,
       rol: "networker",
       estado: "activo", // estado de la cuenta (acceso a la plataforma) -- distinto de estadoNetworker (membresía BNI)
+      tarjetaDigitalActiva: true,
       dpiHash: null,
       dpiSalt: null,
       openaiApiKey: "",
@@ -222,5 +228,78 @@ export async function handleDirectorioPublico(request, env) {
     return jsonResponse(await conTarjetaPublica(env, networkers));
   } catch (error) {
     return jsonResponse({ error: "Error al consultar el directorio público.", message: error.message }, 500);
+  }
+}
+
+const PROYECCION_CARD_PUBLICO = {
+  nombre: 1, empresa: 1, cargo: 1, especialidad: 1, categoriaBNI: 1, esferaId: 1, capituloId: 1,
+  telefono: 1, whatsapp: 1, correo: 1, sitioWeb: 1, facebook: 1, instagram: 1, linkedin: 1, tiktok: 1,
+  fotoPerfil: 1, logoEmpresa: 1, direccionComercial: 1, descripcionServicios: 1, palabrasClave: 1,
+  horarioAtencion: 1, slug: 1, tarjetaDigitalActiva: 1
+};
+
+// Tarjeta digital pública del networker (/card/:slug). A diferencia de
+// /api/tarjeta-publica/:id (que lee un documento aparte en "tarjetas"),
+// esto lee en vivo del propio perfil del networker -- una sola fuente de
+// datos, sin nada que sincronizar ni que pueda quedar desactualizado.
+export async function handleObtenerCardPublico(request, env, slug) {
+  if (!slug) return jsonResponse({ error: "Falta el slug." }, 400);
+
+  try {
+    const networker = await withUsuarios(env, (collection) =>
+      collection.findOne({ slug, rol: "networker" }, { projection: PROYECCION_CARD_PUBLICO })
+    );
+    if (!networker) return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
+    if (networker.tarjetaDigitalActiva === false) {
+      return jsonResponse({ error: "Esta tarjeta digital no está disponible." }, 404);
+    }
+
+    let esferaNombre = "";
+    let capituloNombre = "";
+    if (networker.esferaId) {
+      const esfera = await withCollection(env, "esferas", (c) => c.findOne({ _id: parseObjectId(networker.esferaId) }));
+      esferaNombre = esfera?.nombre || "";
+    }
+    if (networker.capituloId) {
+      const capitulo = await withCollection(env, "capitulos", (c) => c.findOne({ _id: parseObjectId(networker.capituloId) }));
+      capituloNombre = capitulo?.nombre || "";
+    }
+
+    const { esferaId, capituloId, tarjetaDigitalActiva, ...publico } = networker;
+    return jsonResponse({ ...publico, esferaNombre, capituloNombre });
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar la tarjeta.", message: error.message }, 500);
+  }
+}
+
+// Solo admin_capitulo (de su propio capítulo) o superadmin pueden forzar un
+// slug nuevo -- el link viejo deja de servir apenas se guarda este cambio,
+// así que no es algo que el networker deba poder hacer sin permiso.
+export async function handleRegenerarSlugNetworker(request, env, telefonoParam) {
+  const telefono = soloDigitos(telefonoParam);
+
+  try {
+    const networker = await withUsuarios(env, (collection) => collection.findOne({ telefono }));
+    if (!networker) return jsonResponse({ error: "Networker no encontrado." }, 404);
+
+    const { error } = await requerirAdminCapitulo(request, env, networker.capituloId);
+    if (error) return error;
+
+    // A diferencia de la generación inicial (determinística por
+    // nombre+empresa), "regenerar" debe producir SIEMPRE un valor distinto
+    // al actual -- si no, alguien con el mismo nombre/empresa de antes
+    // recibiría el mismo slug y el link viejo seguiría funcionando.
+    const base = generarSlugBase(networker.nombre, networker.empresa);
+    let slug;
+    do {
+      const sufijo = Math.random().toString(36).slice(2, 6);
+      slug = `${base}-${sufijo}`;
+      // eslint-disable-next-line no-await-in-loop
+    } while (slug === networker.slug || (await withUsuarios(env, (c) => c.findOne({ slug }, { projection: { _id: 1 } }))));
+
+    await withUsuarios(env, (collection) => collection.updateOne({ telefono }, { $set: { slug, actualizadoEn: new Date() } }));
+    return jsonResponse({ telefono, slug });
+  } catch (error) {
+    return jsonResponse({ error: "Error al regenerar el código.", message: error.message }, 500);
   }
 }

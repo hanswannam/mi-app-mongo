@@ -9,3 +9,22 @@ export function normalizarUrl(valor) {
   if (/^https?:\/\//i.test(v)) return v;
   return `https://${v}`;
 }
+
+const BASE_RED_SOCIAL = {
+  facebook: "https://facebook.com/",
+  instagram: "https://instagram.com/",
+  linkedin: "https://linkedin.com/in/",
+  tiktok: "https://tiktok.com/@"
+};
+
+// Igual que normalizarUrl, pero para handles de redes sociales: si la
+// persona escribe solo "@usuario" o "usuario" (no un link completo), lo
+// arma con el dominio correcto en vez de producir "https://@usuario" (un
+// link roto -- el navegador lo interpreta como userinfo de una URL sin
+// host).
+export function normalizarRedSocial(red, valor) {
+  const v = texto(valor).replace(/\s+/g, "");
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  return BASE_RED_SOCIAL[red] + v.replace(/^@/, "");
+}

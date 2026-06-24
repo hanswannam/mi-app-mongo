@@ -2,7 +2,13 @@ import { handleListCategorias, handleCrearCategoria, handleEliminarCategoria } f
 import { handleOcr } from "./ocr.js";
 import { handleRegistrarEvento, handleEstadisticasTarjeta } from "./eventos.js";
 import { handleRegistro, handleLogin, handleRecuperarContacto, handleLogout, handleYo } from "./auth.js";
-import { handleGuardarApiKey, handleActualizarUsuario } from "./usuarios.js";
+import {
+  handleGuardarApiKey,
+  handleActualizarUsuario,
+  handleObtenerMiPerfil,
+  handleActualizarMiPerfil,
+  handleCambiarMiPassword
+} from "./usuarios.js";
 import {
   handleListTarjetas,
   handleCreateTarjeta,
@@ -31,7 +37,9 @@ import {
   handleObtenerNetworker,
   handleGuardarNetworker,
   handleDirectorioPublico,
-  handleNetworkersConTarjetas
+  handleNetworkersConTarjetas,
+  handleObtenerCardPublico,
+  handleRegenerarSlugNetworker
 } from "./networkers.js";
 import {
   handleListEsferas,
@@ -117,6 +125,10 @@ export async function enrutar(request, env) {
   if (pathname === "/api/usuario" && metodo === "PUT") return handleActualizarUsuario(request, env);
   if (pathname === "/api/usuario/openai-key" && metodo === "PUT") return handleGuardarApiKey(request, env);
 
+  if (pathname === "/api/mi-perfil" && metodo === "GET") return handleObtenerMiPerfil(request, env);
+  if (pathname === "/api/mi-perfil" && metodo === "PUT") return handleActualizarMiPerfil(request, env);
+  if (pathname === "/api/mi-perfil/password" && metodo === "PUT") return handleCambiarMiPassword(request, env);
+
   if (pathname === "/api/tarjetas" && metodo === "GET") return handleListTarjetas(request, env);
   if (pathname === "/api/tarjetas" && metodo === "POST") return handleCreateTarjeta(request, env);
 
@@ -179,6 +191,14 @@ export async function enrutar(request, env) {
   const matchNetworkerTelefono = pathname.match(/^\/api\/networkers\/([^/]+)$/);
   if (matchNetworkerTelefono && metodo === "GET") return handleObtenerNetworker(request, env, decodeURIComponent(matchNetworkerTelefono[1]));
   if (matchNetworkerTelefono && metodo === "PUT") return handleGuardarNetworker(request, env, decodeURIComponent(matchNetworkerTelefono[1]));
+
+  const matchRegenerarSlug = pathname.match(/^\/api\/networkers\/([^/]+)\/regenerar-slug$/);
+  if (matchRegenerarSlug && metodo === "POST") {
+    return handleRegenerarSlugNetworker(request, env, decodeURIComponent(matchRegenerarSlug[1]));
+  }
+
+  const matchCardSlug = pathname.match(/^\/api\/card\/([^/]+)$/);
+  if (matchCardSlug && metodo === "GET") return handleObtenerCardPublico(request, env, decodeURIComponent(matchCardSlug[1]));
 
   if (pathname === "/api/esferas" && metodo === "GET") return handleListEsferas(request, env);
   if (pathname === "/api/esferas" && metodo === "POST") return handleCrearEsfera(request, env);
@@ -288,6 +308,22 @@ export async function enrutar(request, env) {
 
   const matchMensajeLeido = pathname.match(/^\/api\/mensajes\/([^/]+)\/leido$/);
   if (matchMensajeLeido && metodo === "PATCH") return handleMarcarMensajeLeido(request, env, decodeURIComponent(matchMensajeLeido[1]));
+
+  // Tarjeta pública del networker con URL amigable (/card/su-slug). Es una
+  // sola página estática (card.html) que lee el slug de la propia URL en
+  // el navegador; aquí solo se reescribe la ruta para servir ese archivo.
+  const matchCardPagina = pathname.match(/^\/card\/([^/]+)$/);
+  if (matchCardPagina && metodo === "GET") {
+    // Pedir "/card.html" directo aquí provoca que el servidor de assets
+    // responda con un 307 hacia la URL "limpia" /card (su propio
+    // comportamiento de quitar el .html), perdiendo el slug. Pidiendo ya
+    // la URL limpia "/card" se evita ese redirect y se sirve el HTML tal
+    // cual; el slug lo termina leyendo el propio card.html desde
+    // location.pathname en el navegador, no algo que dependa de esto.
+    const assetUrl = new URL(request.url);
+    assetUrl.pathname = "/card";
+    return env.ASSETS.fetch(new Request(assetUrl, request));
+  }
 
   return env.ASSETS.fetch(request);
 }

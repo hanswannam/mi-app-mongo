@@ -298,3 +298,30 @@ table.tabla-crm tr:hover td { background: #FAFBFD; }
 @media (max-width: 880px) {
   .tour-card { width: calc(100vw - 32px); left: 16px !important; right: 16px; }
 }
+
+/* ---------- Mi Perfil ---------- */
+.seccion-perfil { background: var(--blanco); border: 1px solid var(--gris-borde); border-radius: 4px; padding: 22px; margin-bottom: 20px; }
+.seccion-perfil h3 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-claro); margin: 0 0 16px; }
+.seccion-perfil .campo-fila { margin-bottom: 0; }
+.foto-perfil-editor { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.foto-perfil-preview {
+  width: 76px; height: 76px; border-radius: 50%; background: var(--gris-claro); overflow: hidden;
+  display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--texto-claro); flex-shrink: 0;
+}
+.foto-perfil-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+.tarjeta-preview {
+  display: flex; gap: 20px; align-items: flex-start; background: var(--azul-oscuro); color: #fff;
+  border-radius: 6px; padding: 22px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.tarjeta-preview-foto {
+  width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.15); overflow: hidden;
+  display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;
+}
+.tarjeta-preview-foto img { width: 100%; height: 100%; object-fit: cover; }
+.tarjeta-preview-info { flex: 1; min-width: 160px; }
+.tarjeta-preview-nombre { font-weight: 800; font-size: 17px; }
+.tarjeta-preview-detalle { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 2px; }
+.tarjeta-preview-qr { background: #fff; padding: 8px; border-radius: 6px; flex-shrink: 0; }
+.tarjeta-preview-link { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.tarjeta-preview-link code { background: rgba(255,255,255,0.12); padding: 6px 10px; border-radius: 4px; font-size: 12px; word-break: break-all; }

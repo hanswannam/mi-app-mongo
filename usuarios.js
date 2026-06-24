@@ -4,10 +4,14 @@ import { parseJson } from "./src/utils/parseJson.js";
 import { texto } from "./src/utils/strings.js";
 import { soloDigitos } from "./src/utils/normalizePhone.js";
 import { leerImagen } from "./src/utils/validateImage.js";
+import { normalizarUrl, normalizarRedSocial } from "./src/utils/validateUrl.js";
+import { generarSlugUnico } from "./src/utils/slug.js";
 import { generarSalt, hashConSalt, firmarSesion } from "./lib/crypto.js";
 import { SESION_DURACION_MS, cookieSesion, obtenerConfig } from "./lib/sesion.js";
 import { obtenerSesion } from "./src/middleware/authMiddleware.js";
-import { withUsuarios, withTarjetas } from "./lib/db.js";
+import { withUsuarios, withTarjetas, withCollection, parseObjectId } from "./lib/db.js";
+
+const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function infoUsuarioPublica(usuario) {
   return {
@@ -133,5 +137,141 @@ export async function handleActualizarUsuario(request, env) {
     return jsonResponse(infoUsuarioPublica(resultado.usuario), 200, { "Set-Cookie": cookieSesion(token) });
   } catch (error) {
     return jsonResponse({ error: "Error al actualizar tu cuenta.", message: error.message }, 500);
+  }
+}
+
+// --- Mi Perfil (panel del networker) ---
+// Distinto de handleActualizarUsuario: aquí viven los campos de membresía
+// BNI y de la tarjeta digital (empresa, esfera, redes sociales, etc.), no
+// la identidad de la cuenta (teléfono/DPI) -- eso sigue en el flujo de
+// arriba, ya probado y en uso.
+
+const PROYECCION_SIN_CREDENCIALES = { dpiHash: 0, dpiSalt: 0, openaiApiKey: 0 };
+
+export async function handleObtenerMiPerfil(request, env) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  try {
+    let usuario = await withUsuarios(env, (collection) =>
+      collection.findOne({ telefono: sesion.telefono }, { projection: PROYECCION_SIN_CREDENCIALES })
+    );
+    if (!usuario) return jsonResponse({ error: "No autenticado." }, 401);
+
+    // El slug es lo que arma el link público (/card/slug); se genera una
+    // sola vez, perezosamente, para no tener que migrar a todos los
+    // networkers existentes de antemano.
+    if (usuario.rol === "networker" && !usuario.slug) {
+      const slug = await generarSlugUnico(env, withUsuarios, usuario.nombre, usuario.empresa);
+      await withUsuarios(env, (collection) => collection.updateOne({ telefono: usuario.telefono }, { $set: { slug } }));
+      usuario = { ...usuario, slug };
+    }
+
+    let esferaNombre = "";
+    let capituloNombre = "";
+    if (usuario.esferaId) {
+      const esfera = await withCollection(env, "esferas", (c) => c.findOne({ _id: parseObjectId(usuario.esferaId) }));
+      esferaNombre = esfera?.nombre || "";
+    }
+    if (usuario.capituloId) {
+      const capitulo = await withCollection(env, "capitulos", (c) => c.findOne({ _id: parseObjectId(usuario.capituloId) }));
+      capituloNombre = capitulo?.nombre || "";
+    }
+
+    return jsonResponse({ ...usuario, esferaNombre, capituloNombre });
+  } catch (error) {
+    return jsonResponse({ error: "Error al consultar tu perfil.", message: error.message }, 500);
+  }
+}
+
+// Campos que el propio networker puede editar de su perfil. Todo lo que
+// no esté en esta lista (capituloId, rol, telefono, estado, slug,
+// tarjetaDigitalActiva, dpiHash...) se ignora aunque venga en el body --
+// nunca se lee desde aquí, ni siquiera por error.
+export async function handleActualizarMiPerfil(request, env) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
+
+  let fotoPerfil;
+  let logoEmpresa;
+  try {
+    fotoPerfil = body.fotoPerfil !== undefined ? leerImagen(body.fotoPerfil, "foto de perfil") : undefined;
+    logoEmpresa = body.logoEmpresa !== undefined ? leerImagen(body.logoEmpresa, "logo de empresa") : undefined;
+  } catch (error) {
+    return jsonResponse({ error: error.message }, 400);
+  }
+
+  const correo = texto(body.correo);
+  if (correo && !REGEX_CORREO.test(correo)) {
+    return jsonResponse({ error: "El correo no es válido." }, 400);
+  }
+
+  const cambios = {};
+  if (body.nombre !== undefined) cambios.nombre = texto(body.nombre);
+  if (fotoPerfil !== undefined) cambios.fotoPerfil = fotoPerfil;
+  if (body.empresa !== undefined) cambios.empresa = texto(body.empresa);
+  if (body.cargo !== undefined) cambios.cargo = texto(body.cargo);
+  if (body.especialidad !== undefined) cambios.especialidad = texto(body.especialidad);
+  if (body.categoriaBNI !== undefined) cambios.categoriaBNI = texto(body.categoriaBNI);
+  if (body.esferaId !== undefined) cambios.esferaId = texto(body.esferaId) || null;
+  if (body.whatsapp !== undefined) cambios.whatsapp = soloDigitos(body.whatsapp);
+  if (body.correo !== undefined) cambios.correo = correo;
+  if (body.sitioWeb !== undefined) cambios.sitioWeb = normalizarUrl(body.sitioWeb);
+  if (body.facebook !== undefined) cambios.facebook = normalizarRedSocial("facebook", body.facebook);
+  if (body.instagram !== undefined) cambios.instagram = normalizarRedSocial("instagram", body.instagram);
+  if (body.linkedin !== undefined) cambios.linkedin = normalizarRedSocial("linkedin", body.linkedin);
+  if (body.tiktok !== undefined) cambios.tiktok = normalizarRedSocial("tiktok", body.tiktok);
+  if (body.direccionComercial !== undefined) cambios.direccionComercial = texto(body.direccionComercial);
+  if (body.descripcionServicios !== undefined) cambios.descripcionServicios = texto(body.descripcionServicios);
+  if (body.palabrasClave !== undefined) cambios.palabrasClave = texto(body.palabrasClave);
+  if (body.horarioAtencion !== undefined) cambios.horarioAtencion = texto(body.horarioAtencion);
+  if (logoEmpresa !== undefined) cambios.logoEmpresa = logoEmpresa;
+
+  if (!cambios.nombre && cambios.nombre !== undefined) {
+    return jsonResponse({ error: "El nombre no puede quedar vacío." }, 400);
+  }
+
+  try {
+    cambios.actualizadoEn = new Date();
+    await withUsuarios(env, (collection) => collection.updateOne({ telefono: sesion.telefono }, { $set: cambios }));
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    return jsonResponse({ error: "Error al actualizar tu perfil.", message: error.message }, 500);
+  }
+}
+
+export async function handleCambiarMiPassword(request, env) {
+  const sesion = await obtenerSesion(request, env);
+  if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
+
+  const { body, error: errorJson } = await parseJson(request);
+  if (errorJson) return errorResponse(errorJson, 400);
+
+  const contrasenaActual = soloDigitos(body.contrasenaActual);
+  const nuevaContrasena = soloDigitos(body.nuevaContrasena);
+  const confirmarContrasena = soloDigitos(body.confirmarContrasena);
+
+  if (!contrasenaActual) return jsonResponse({ error: "Ingresa tu contraseña actual." }, 400);
+  if (nuevaContrasena.length < 8) return jsonResponse({ error: "La nueva contraseña debe tener al menos 8 dígitos." }, 400);
+  if (nuevaContrasena !== confirmarContrasena) return jsonResponse({ error: "Las contraseñas nuevas no coinciden." }, 400);
+
+  try {
+    const usuario = await withUsuarios(env, (collection) => collection.findOne({ telefono: sesion.telefono }));
+    if (!usuario) return jsonResponse({ error: "No autenticado." }, 401);
+
+    const hashActual = await hashConSalt(contrasenaActual, usuario.dpiSalt);
+    if (hashActual !== usuario.dpiHash) return jsonResponse({ error: "Tu contraseña actual no es correcta." }, 401);
+
+    const nuevoSalt = generarSalt();
+    const dpiHash = await hashConSalt(nuevaContrasena, nuevoSalt);
+    await withUsuarios(env, (collection) =>
+      collection.updateOne({ telefono: sesion.telefono }, { $set: { dpiHash, dpiSalt: nuevoSalt, actualizadoEn: new Date() } })
+    );
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    return jsonResponse({ error: "Error al cambiar tu contraseña.", message: error.message }, 500);
   }
 }

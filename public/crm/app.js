@@ -3,6 +3,7 @@
 // es una superficie nueva, no toca nada de /public/app.js.
 
 import { whatsappUrl } from "../src/utils/contactLinks.js";
+import { recortarYComprimirCuadrado } from "../src/utils/imageProcessing.js";
 
 let usuarioActual = null;
 let capitulosDisponibles = [];
@@ -15,6 +16,7 @@ let misPermisos = {}; // { moduloKey: ["ver","crear",...] }, ver cargarMisPermis
 const SECCIONES = [
   { id: "dashboard", label: "Dashboard", icono: "📊" },
   { id: "capitulos", label: "Capítulos", icono: "🏷️", soloSuperAdmin: true },
+  { id: "mi-perfil", label: "Mi Perfil", icono: "🪪", soloNetworker: true },
   { id: "usuarios", label: "Usuarios", icono: "🧑‍💼" },
   { id: "networkers", label: "Networkers", icono: "👥" },
   { id: "tarjetas", label: "Tarjetas Digitales", icono: "💳" },
@@ -90,6 +92,24 @@ function formatMonto(valor, moneda = "GTQ") {
 
 function pill(texto, claseExtra) {
   return `<span class="pill pill-${claseExtra}">${escapeHtml(texto)}</span>`;
+}
+
+// La librería de QR se carga desde un CDN externo en el <head>; en una red
+// lenta puede no estar lista todavía cuando se abre Mi Perfil. Reintenta
+// una vez antes de rendirse (mismo patrón que la PWA móvil).
+let qrCodePromise = null;
+function asegurarQRCode() {
+  if (window.QRCode) return Promise.resolve(true);
+  if (!qrCodePromise) {
+    qrCodePromise = new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+  }
+  return qrCodePromise;
 }
 
 // ---------- panel lateral genérico ----------
@@ -276,7 +296,11 @@ function renderTopbarCapitulo() {
 
 function renderSidebar() {
   const nav = document.getElementById("sidebar-nav");
-  nav.innerHTML = SECCIONES.filter((s) => (!s.soloSuperAdmin || esSuperAdmin()) && (s.proximamente || puedeVer(s.id)))
+  nav.innerHTML = SECCIONES.filter((s) =>
+    (!s.soloSuperAdmin || esSuperAdmin()) &&
+    (!s.soloNetworker || usuarioActual.rol === "networker") &&
+    (s.proximamente || s.soloNetworker || puedeVer(s.id))
+  )
     .map((s) => {
       const claseExtra = s.proximamente ? "proximamente" : (s.id === vistaActiva ? "activo" : "");
       return `<div class="sidebar-item ${claseExtra}" data-vista="${s.id}" title="${s.proximamente ? "Próximamente" : ""}">
@@ -344,7 +368,8 @@ async function renderVista() {
     recursos: renderRecursos,
     asistencia: renderAsistencia,
     configuracion: renderConfiguracion,
-    mensajes: renderMensajes
+    mensajes: renderMensajes,
+    "mi-perfil": renderMiPerfil
   };
   const fn = renderers[vistaActiva] || renderDashboard;
   await fn(cont);
@@ -809,6 +834,17 @@ function abrirFormNetworker(networker) {
       <div class="campo"><label>Fecha de ingreso</label><input type="date" id="nw-ingreso" value="${networker?.fechaIngreso ? new Date(networker.fechaIngreso).toISOString().slice(0, 10) : ""}"></div>
       <div class="campo"><label>Fecha de renovación</label><input type="date" id="nw-renovacion" value="${networker?.fechaRenovacion ? new Date(networker.fechaRenovacion).toISOString().slice(0, 10) : ""}"></div>
     </div>
+    ${esEdicion ? `
+    <div class="campo">
+      <label class="campo-checkbox"><input type="checkbox" id="nw-tarjeta-activa" ${networker?.tarjetaDigitalActiva === false ? "" : "checked"}> Tarjeta digital activa (su link público funciona)</label>
+    </div>
+    <div class="campo">
+      <label>Tarjeta digital pública</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        ${networker?.slug ? `<a href="/card/${networker.slug}" target="_blank" rel="noopener" class="btn-secundario" style="text-decoration:none;padding:8px 14px;font-size:13px;">Ver tarjeta →</a>` : '<span class="vista-sub">Se genera automáticamente al guardar.</span>'}
+        <button type="button" class="btn-secundario" id="btn-regenerar-slug" style="padding:8px 14px;font-size:13px;">🔁 Regenerar código (cambia el link)</button>
+      </div>
+    </div>` : ""}
     <div class="panel-acciones">
       <button class="btn-primario" id="btn-guardar-networker">Guardar</button>
       <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
@@ -817,6 +853,19 @@ function abrirFormNetworker(networker) {
     <p class="form-mensaje" id="form-nw-mensaje"></p>
   `);
   document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+
+  const btnRegenerar = document.getElementById("btn-regenerar-slug");
+  if (btnRegenerar) {
+    btnRegenerar.addEventListener("click", async () => {
+      if (!confirm("El link y el QR actuales de esta persona dejarán de funcionar. ¿Continuar?")) return;
+      const { ok, data } = await api(`/api/networkers/${networker.telefono}/regenerar-slug`, { method: "POST" });
+      const msg = document.getElementById("form-nw-mensaje");
+      if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo regenerar."; return; }
+      msg.className = "form-mensaje ok";
+      msg.textContent = `Nuevo link: ${location.origin}/card/${data.slug}`;
+    });
+  }
+
   document.getElementById("btn-guardar-networker").addEventListener("click", async () => {
     const telefono = document.getElementById("nw-telefono").value.trim();
     const cuerpo = {
@@ -830,6 +879,7 @@ function abrirFormNetworker(networker) {
       fechaIngreso: document.getElementById("nw-ingreso").value || null,
       fechaRenovacion: document.getElementById("nw-renovacion").value || null
     };
+    if (esEdicion) cuerpo.tarjetaDigitalActiva = document.getElementById("nw-tarjeta-activa").checked;
     const msg = document.getElementById("form-nw-mensaje");
     if (!telefono) { msg.className = "form-mensaje error"; msg.textContent = "El teléfono es obligatorio."; return; }
     const { ok, data } = await api(`/api/networkers/${telefono}`, { method: "PUT", body: JSON.stringify(cuerpo) });
@@ -1780,6 +1830,248 @@ async function abrirFormMensaje(mensajeOriginal) {
   });
 }
 
+// ---------- Mi Perfil ----------
+let mpFotoNueva; // undefined = sin cambio, string = nueva dataURL a guardar
+let mpLogoNueva;
+
+async function renderMiPerfil(cont) {
+  mpFotoNueva = undefined;
+  mpLogoNueva = undefined;
+
+  const [{ ok, data: perfil }, { data: esferas }] = await Promise.all([
+    api("/api/mi-perfil"),
+    api(conCapitulo("/api/esferas"))
+  ]);
+  if (!ok) { cont.innerHTML = `<div class="estado-vacio">${escapeHtml(perfil.error || "No se pudo cargar tu perfil.")}</div>`; return; }
+  const listaEsferas = Array.isArray(esferas) ? esferas : [];
+
+  cont.innerHTML = `
+    <div class="vista-header"><div><div class="vista-titulo">Mi Perfil</div><div class="vista-sub">Tu información personal y tu tarjeta digital</div></div></div>
+
+    <div class="seccion-perfil">
+      <h3>Foto de perfil</h3>
+      <div class="foto-perfil-editor">
+        <div class="foto-perfil-preview" id="mp-foto-preview">${perfil.fotoPerfil ? `<img src="${perfil.fotoPerfil}" alt="">` : "🧑"}</div>
+        <div>
+          <input type="file" accept="image/*" id="mp-foto-input" style="display:none;">
+          <button type="button" class="btn-secundario" id="mp-btn-foto">Cambiar foto</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="seccion-perfil">
+      <h3>Datos personales</h3>
+      <div class="campo"><label>Nombre completo</label><input id="mp-nombre" value="${escapeHtml(perfil.nombre)}"></div>
+      <div class="campo-fila">
+        <div class="campo"><label>Teléfono (tu usuario, no editable aquí)</label><input value="${escapeHtml(perfil.telefono)}" disabled></div>
+        <div class="campo"><label>Correo</label><input type="email" id="mp-correo" value="${escapeHtml(perfil.correo || "")}"></div>
+      </div>
+    </div>
+
+    <div class="seccion-perfil">
+      <h3>Empresa y especialidad</h3>
+      <div class="campo-fila">
+        <div class="campo"><label>Empresa</label><input id="mp-empresa" value="${escapeHtml(perfil.empresa || "")}"></div>
+        <div class="campo"><label>Cargo</label><input id="mp-cargo" value="${escapeHtml(perfil.cargo || "")}"></div>
+      </div>
+      <div class="campo-fila">
+        <div class="campo"><label>Especialidad</label><input id="mp-especialidad" value="${escapeHtml(perfil.especialidad || "")}"></div>
+        <div class="campo"><label>Categoría BNI</label><input id="mp-categoriabni" value="${escapeHtml(perfil.categoriaBNI || "")}"></div>
+      </div>
+      <div class="campo-fila">
+        <div class="campo"><label>Esfera</label>
+          <select id="mp-esfera"><option value="">—</option>${listaEsferas.map((e) => `<option value="${e._id}" ${perfil.esferaId === e._id ? "selected" : ""}>${escapeHtml(e.nombre)}</option>`).join("")}</select>
+        </div>
+        <div class="campo"><label>Capítulo (solo lo asigna tu administrador)</label><input value="${escapeHtml(perfil.capituloNombre || "—")}" disabled></div>
+      </div>
+    </div>
+
+    <div class="seccion-perfil">
+      <h3>Datos de contacto</h3>
+      <div class="campo-fila">
+        <div class="campo"><label>WhatsApp</label><input id="mp-whatsapp" value="${escapeHtml(perfil.whatsapp || "")}"></div>
+        <div class="campo"><label>Sitio web</label><input id="mp-sitioweb" value="${escapeHtml(perfil.sitioWeb || "")}"></div>
+      </div>
+      <div class="campo"><label>Dirección comercial</label><input id="mp-direccion" value="${escapeHtml(perfil.direccionComercial || "")}"></div>
+      <div class="campo"><label>Horario de atención</label><input id="mp-horario" value="${escapeHtml(perfil.horarioAtencion || "")}" placeholder="Ej. Lunes a viernes, 8am - 5pm"></div>
+    </div>
+
+    <div class="seccion-perfil">
+      <h3>Redes sociales</h3>
+      <div class="campo-fila">
+        <div class="campo"><label>Facebook</label><input id="mp-facebook" value="${escapeHtml(perfil.facebook || "")}"></div>
+        <div class="campo"><label>Instagram</label><input id="mp-instagram" value="${escapeHtml(perfil.instagram || "")}"></div>
+      </div>
+      <div class="campo-fila">
+        <div class="campo"><label>LinkedIn</label><input id="mp-linkedin" value="${escapeHtml(perfil.linkedin || "")}"></div>
+        <div class="campo"><label>TikTok</label><input id="mp-tiktok" value="${escapeHtml(perfil.tiktok || "")}"></div>
+      </div>
+    </div>
+
+    <div class="seccion-perfil">
+      <h3>Descripción de tu negocio</h3>
+      <div class="campo"><label>Descripción de servicios</label><textarea id="mp-descripcion" rows="3">${escapeHtml(perfil.descripcionServicios || "")}</textarea></div>
+      <div class="campo"><label>Palabras clave de búsqueda</label><input id="mp-palabrasclave" value="${escapeHtml(perfil.palabrasClave || "")}" placeholder="separadas por coma"></div>
+      <div class="foto-perfil-editor">
+        <div class="foto-perfil-preview" id="mp-logo-preview">${perfil.logoEmpresa ? `<img src="${perfil.logoEmpresa}" alt="">` : "🏢"}</div>
+        <div>
+          <input type="file" accept="image/*" id="mp-logo-input" style="display:none;">
+          <button type="button" class="btn-secundario" id="mp-btn-logo">Subir logo de empresa</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-acciones" style="margin-bottom:24px;">
+      <button type="button" class="btn-primario" id="mp-btn-guardar">Guardar cambios</button>
+    </div>
+    <p class="form-mensaje" id="mp-mensaje-guardar"></p>
+
+    <div class="seccion-perfil">
+      <h3>Tarjeta digital</h3>
+      <div id="mp-tarjeta-zona">Cargando…</div>
+    </div>
+
+    <div class="seccion-perfil">
+      <h3>Seguridad</h3>
+      <div class="campo"><label>Contraseña actual</label><input type="password" id="mp-pw-actual"></div>
+      <div class="campo-fila">
+        <div class="campo"><label>Nueva contraseña</label><input type="password" id="mp-pw-nueva"></div>
+        <div class="campo"><label>Confirmar nueva contraseña</label><input type="password" id="mp-pw-confirmar"></div>
+      </div>
+      <button type="button" class="btn-primario" id="mp-btn-cambiar-password">Cambiar contraseña</button>
+      <p class="form-mensaje" id="mp-mensaje-password"></p>
+    </div>
+  `;
+
+  // ---- foto / logo ----
+  document.getElementById("mp-btn-foto").addEventListener("click", () => document.getElementById("mp-foto-input").click());
+  document.getElementById("mp-foto-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      mpFotoNueva = await recortarYComprimirCuadrado(file, 400, 0.8);
+      document.getElementById("mp-foto-preview").innerHTML = `<img src="${mpFotoNueva}" alt="">`;
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+  document.getElementById("mp-btn-logo").addEventListener("click", () => document.getElementById("mp-logo-input").click());
+  document.getElementById("mp-logo-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      mpLogoNueva = await recortarYComprimirCuadrado(file, 400, 0.8);
+      document.getElementById("mp-logo-preview").innerHTML = `<img src="${mpLogoNueva}" alt="">`;
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+
+  // ---- guardar perfil ----
+  document.getElementById("mp-btn-guardar").addEventListener("click", async () => {
+    const msg = document.getElementById("mp-mensaje-guardar");
+    const cuerpo = {
+      nombre: document.getElementById("mp-nombre").value.trim(),
+      correo: document.getElementById("mp-correo").value.trim(),
+      empresa: document.getElementById("mp-empresa").value.trim(),
+      cargo: document.getElementById("mp-cargo").value.trim(),
+      especialidad: document.getElementById("mp-especialidad").value.trim(),
+      categoriaBNI: document.getElementById("mp-categoriabni").value.trim(),
+      esferaId: document.getElementById("mp-esfera").value || null,
+      whatsapp: document.getElementById("mp-whatsapp").value.trim(),
+      sitioWeb: document.getElementById("mp-sitioweb").value.trim(),
+      direccionComercial: document.getElementById("mp-direccion").value.trim(),
+      horarioAtencion: document.getElementById("mp-horario").value.trim(),
+      facebook: document.getElementById("mp-facebook").value.trim(),
+      instagram: document.getElementById("mp-instagram").value.trim(),
+      linkedin: document.getElementById("mp-linkedin").value.trim(),
+      tiktok: document.getElementById("mp-tiktok").value.trim(),
+      descripcionServicios: document.getElementById("mp-descripcion").value.trim(),
+      palabrasClave: document.getElementById("mp-palabrasclave").value.trim()
+    };
+    if (mpFotoNueva !== undefined) cuerpo.fotoPerfil = mpFotoNueva;
+    if (mpLogoNueva !== undefined) cuerpo.logoEmpresa = mpLogoNueva;
+
+    const { ok: okGuardar, data: dataGuardar } = await api("/api/mi-perfil", { method: "PUT", body: JSON.stringify(cuerpo) });
+    if (!okGuardar) { msg.className = "form-mensaje error"; msg.textContent = dataGuardar.error || "No se pudo guardar."; return; }
+    msg.className = "form-mensaje ok";
+    msg.textContent = "Perfil actualizado. Tu tarjeta digital ya refleja estos cambios.";
+    await renderTarjetaMiPerfil();
+  });
+
+  // ---- cambiar contraseña ----
+  document.getElementById("mp-btn-cambiar-password").addEventListener("click", async () => {
+    const msg = document.getElementById("mp-mensaje-password");
+    const cuerpo = {
+      contrasenaActual: document.getElementById("mp-pw-actual").value.trim(),
+      nuevaContrasena: document.getElementById("mp-pw-nueva").value.trim(),
+      confirmarContrasena: document.getElementById("mp-pw-confirmar").value.trim()
+    };
+    const { ok: okPw, data: dataPw } = await api("/api/mi-perfil/password", { method: "PUT", body: JSON.stringify(cuerpo) });
+    if (!okPw) { msg.className = "form-mensaje error"; msg.textContent = dataPw.error || "No se pudo cambiar la contraseña."; return; }
+    msg.className = "form-mensaje ok";
+    msg.textContent = "Contraseña actualizada correctamente.";
+    document.getElementById("mp-pw-actual").value = "";
+    document.getElementById("mp-pw-nueva").value = "";
+    document.getElementById("mp-pw-confirmar").value = "";
+  });
+
+  await renderTarjetaMiPerfil(perfil);
+}
+
+async function renderTarjetaMiPerfil(perfilArg) {
+  const zona = document.getElementById("mp-tarjeta-zona");
+  const { ok, data: perfil } = perfilArg ? { ok: true, data: perfilArg } : await api("/api/mi-perfil");
+  if (!ok) { zona.innerHTML = `<div class="estado-vacio">No se pudo cargar tu tarjeta.</div>`; return; }
+
+  if (perfil.tarjetaDigitalActiva === false) {
+    zona.innerHTML = `<div class="estado-vacio">🚫 Tu tarjeta digital está desactivada. Contacta a tu administrador de capítulo.</div>`;
+    return;
+  }
+
+  const enlace = `${location.origin}/card/${perfil.slug}`;
+  zona.innerHTML = `
+    <div class="tarjeta-preview">
+      <div class="tarjeta-preview-foto">${perfil.fotoPerfil ? `<img src="${perfil.fotoPerfil}" alt="">` : "🧑"}</div>
+      <div class="tarjeta-preview-info">
+        <div class="tarjeta-preview-nombre">${escapeHtml(perfil.nombre)}</div>
+        <div class="tarjeta-preview-detalle">${escapeHtml(perfil.cargo || perfil.especialidad || "")} ${perfil.empresa ? "· " + escapeHtml(perfil.empresa) : ""}</div>
+        <div class="tarjeta-preview-detalle">${escapeHtml(perfil.capituloNombre || "")} ${perfil.esferaNombre ? "· " + escapeHtml(perfil.esferaNombre) : ""}</div>
+        <div class="tarjeta-preview-link">
+          <code>${escapeHtml(enlace)}</code>
+        </div>
+      </div>
+      <div class="tarjeta-preview-qr"><canvas id="mp-qr-canvas"></canvas></div>
+    </div>
+    <div class="panel-acciones">
+      <button type="button" class="btn-secundario" id="mp-btn-copiar-link">🔗 Copiar link</button>
+      <button type="button" class="btn-secundario" id="mp-btn-descargar-qr">⬇️ Descargar QR</button>
+      <a class="btn-primario" href="${enlace}" target="_blank" rel="noopener" style="text-decoration:none;">Ver tarjeta pública →</a>
+    </div>
+  `;
+
+  if (await asegurarQRCode()) {
+    QRCode.toCanvas(document.getElementById("mp-qr-canvas"), enlace, { width: 130, margin: 1, color: { dark: "#0F1B3D" } });
+  } else {
+    document.querySelector(".tarjeta-preview-qr").innerHTML = "QR no disponible";
+  }
+
+  document.getElementById("mp-btn-copiar-link").addEventListener("click", async (e) => {
+    await navigator.clipboard.writeText(enlace);
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.textContent = "✅ Copiado";
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
+  document.getElementById("mp-btn-descargar-qr").addEventListener("click", () => {
+    const canvas = document.getElementById("mp-qr-canvas");
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `qr-${perfil.slug}.png`;
+    a.click();
+  });
+}
+
 // ---------- Tour guiado ----------
 // Recorre solo los módulos que esta persona realmente puede ver (mismo
 // filtro que el menú lateral), así nadie ve un paso de un módulo al que
@@ -1802,14 +2094,20 @@ const DESCRIPCION_MODULO_TOUR = {
   recursos: "Biblioteca de enlaces útiles para el capítulo: manuales, plantillas, videos.",
   asistencia: "El control de asistencia a las reuniones, con el porcentaje de cada networker y alertas de baja asistencia.",
   mensajes: "Comunicados del capítulo: el administrador puede escribirle a todos, a una esfera, o a un networker puntual.",
-  configuracion: "Aquí el administrador puede prender o apagar módulos completos para todo el capítulo."
+  configuracion: "Aquí el administrador puede prender o apagar módulos completos para todo el capítulo.",
+  "mi-perfil": "Tu información personal, tu empresa, redes sociales y tu tarjeta digital con QR -- todo en un solo lugar, y se actualiza junto con tu tarjeta automáticamente."
 };
 
 let tourPasos = [];
 let tourIndice = 0;
 
 function construirPasosTour() {
-  const modulos = SECCIONES.filter((s) => !s.proximamente && (!s.soloSuperAdmin || esSuperAdmin()) && puedeVer(s.id));
+  const modulos = SECCIONES.filter((s) =>
+    !s.proximamente &&
+    (!s.soloSuperAdmin || esSuperAdmin()) &&
+    (!s.soloNetworker || usuarioActual.rol === "networker") &&
+    (s.soloNetworker || puedeVer(s.id))
+  );
   return [
     { titulo: "Bienvenido al CRM BNI", texto: "Este recorrido te muestra para qué sirve cada sección del menú. Puedes cerrarlo cuando quieras y volver a verlo después desde \"Tour guiado\".", target: null },
     ...modulos.map((s) => ({ titulo: `${s.icono} ${s.label}`, texto: DESCRIPCION_MODULO_TOUR[s.id] || "", target: `.sidebar-item[data-vista="${s.id}"]` })),

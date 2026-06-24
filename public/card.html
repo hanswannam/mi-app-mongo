@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tarjeta digital · CRM BNI</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  :root {
+    --azul-oscuro: #0F1B3D; --blanco: #FFFFFF; --gris-claro: #F4F6FA; --gris-borde: #E3E7EF;
+    --texto: #1B2333; --texto-claro: #6B7280; --dorado: #D9A441; --dorado-oscuro: #B9842A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--gris-claro); color: var(--texto); min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .card { width: 100%; max-width: 440px; }
+  .encabezado {
+    background: var(--azul-oscuro); color: #fff; border-radius: 14px 14px 0 0; padding: 28px 26px;
+    display: flex; gap: 16px; align-items: center;
+  }
+  .avatar {
+    width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.15); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .encabezado h1 { font-size: 19px; font-weight: 800; margin: 0; }
+  .encabezado .detalle { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 2px; }
+  .pill-esfera {
+    display: inline-block; margin-top: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    background: var(--dorado); color: var(--azul-oscuro); border-radius: 999px; padding: 3px 10px; font-weight: 700;
+  }
+  .cuerpo { background: var(--blanco); border-radius: 0 0 14px 14px; padding: 26px; border: 1px solid var(--gris-borde); border-top: none; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .acciones a {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none; color: var(--texto);
+    background: var(--gris-claro); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 9px 14px; font-weight: 600;
+  }
+  .descripcion { font-size: 14px; line-height: 1.6; color: var(--texto); margin-bottom: 18px; white-space: pre-wrap; }
+  .palabras-clave { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .palabras-clave span { background: var(--gris-claro); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--texto-claro); }
+  .info-extra { font-size: 13px; color: var(--texto-claro); border-top: 1px solid var(--gris-borde); padding-top: 14px; margin-bottom: 14px; }
+  .info-extra div { margin-bottom: 4px; }
+  .redes { display: flex; gap: 10px; margin-bottom: 20px; }
+  .redes a {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--gris-claro); display: flex;
+    align-items: center; justify-content: center; text-decoration: none; font-size: 16px;
+  }
+  .pie { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--gris-borde); padding-top: 18px; gap: 14px; }
+  .pie canvas { border-radius: 6px; }
+  .btn-compartir {
+    background: var(--dorado); color: var(--azul-oscuro); border: none; border-radius: 8px; padding: 10px 16px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  .marca { text-align: center; margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--texto-claro); }
+  .placeholder-text { text-align: center; color: var(--texto-claro); padding: 40px 20px; background: var(--blanco); border-radius: 14px; }
+</style>
+</head>
+<body>
+  <div class="card" id="contenido"><p class="placeholder-text">Cargando tarjeta...</p></div>
+
+<script>
+  function escapeHtml(v) {
+    return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function iniciales(nombre) {
+    return (nombre || "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
+  }
+  function whatsappUrl(telefono) {
+    const digitos = (telefono || "").replace(/\D/g, "");
+    if (!digitos) return null;
+    const conCodigo = digitos.length <= 8 ? `502${digitos}` : digitos;
+    return `https://wa.me/${conCodigo}`;
+  }
+  function normalizarUrl(valor) {
+    const v = (valor || "").trim();
+    if (!v) return null;
+    if (/^https?:\/\//i.test(v)) return v;
+    return `https://${v}`;
+  }
+
+  async function cargar() {
+    const contenedor = document.getElementById("contenido");
+    const slug = location.pathname.split("/card/")[1];
+    if (!slug) { contenedor.innerHTML = '<p class="placeholder-text">Falta el identificador de la tarjeta.</p>'; return; }
+
+    let t;
+    try {
+      const r = await fetch(`/api/card/${encodeURIComponent(slug)}`);
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        contenedor.innerHTML = `<p class="placeholder-text">${escapeHtml(data.error || "Esta tarjeta no existe o no está disponible.")}</p>`;
+        return;
+      }
+      t = await r.json();
+    } catch {
+      contenedor.innerHTML = '<p class="placeholder-text">No se pudo cargar la tarjeta.</p>';
+      return;
+    }
+
+    const detalle = [t.cargo, t.empresa].filter(Boolean).map(escapeHtml).join(" · ");
+    const ubicacion = [t.capituloNombre, t.especialidad].filter(Boolean).map(escapeHtml).join(" · ");
+
+    const acciones = [];
+    const wa = whatsappUrl(t.whatsapp || t.telefono);
+    if (wa) acciones.push(`<a href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
+    if (t.telefono) acciones.push(`<a href="tel:${escapeHtml(t.telefono)}">📞 Llamar</a>`);
+    if (t.correo) acciones.push(`<a href="mailto:${escapeHtml(t.correo)}">✉️ Correo</a>`);
+    const sitioWebUrl = normalizarUrl(t.sitioWeb);
+    if (sitioWebUrl) acciones.push(`<a href="${escapeHtml(sitioWebUrl)}" target="_blank" rel="noopener">🌐 Sitio web</a>`);
+
+    const redes = [];
+    const fb = normalizarUrl(t.facebook); if (fb) redes.push(`<a href="${escapeHtml(fb)}" target="_blank" rel="noopener" title="Facebook">📘</a>`);
+    const ig = normalizarUrl(t.instagram); if (ig) redes.push(`<a href="${escapeHtml(ig)}" target="_blank" rel="noopener" title="Instagram">📷</a>`);
+    const li = normalizarUrl(t.linkedin); if (li) redes.push(`<a href="${escapeHtml(li)}" target="_blank" rel="noopener" title="LinkedIn">💼</a>`);
+    const tt = normalizarUrl(t.tiktok); if (tt) redes.push(`<a href="${escapeHtml(tt)}" target="_blank" rel="noopener" title="TikTok">🎵</a>`);
+
+    const palabras = (t.palabrasClave || "").split(",").map((p) => p.trim()).filter(Boolean);
+
+    contenedor.innerHTML = `
+      <div class="encabezado">
+        <div class="avatar">${t.fotoPerfil ? `<img src="${t.fotoPerfil}" alt="">` : iniciales(t.nombre)}</div>
+        <div>
+          <h1>${escapeHtml(t.nombre)}</h1>
+          ${detalle ? `<div class="detalle">${detalle}</div>` : ""}
+          ${ubicacion ? `<div class="detalle">${ubicacion}</div>` : ""}
+          ${t.esferaNombre ? `<span class="pill-esfera">${escapeHtml(t.esferaNombre)}</span>` : ""}
+        </div>
+      </div>
+      <div class="cuerpo">
+        ${acciones.length ? `<div class="acciones">${acciones.join("")}</div>` : ""}
+        ${t.descripcionServicios ? `<p class="descripcion">${escapeHtml(t.descripcionServicios)}</p>` : ""}
+        ${palabras.length ? `<div class="palabras-clave">${palabras.map((p) => `<span>${escapeHtml(p)}</span>`).join("")}</div>` : ""}
+        ${t.direccionComercial || t.horarioAtencion ? `<div class="info-extra">
+          ${t.direccionComercial ? `<div>📍 ${escapeHtml(t.direccionComercial)}</div>` : ""}
+          ${t.horarioAtencion ? `<div>🕒 ${escapeHtml(t.horarioAtencion)}</div>` : ""}
+        </div>` : ""}
+        ${redes.length ? `<div class="redes">${redes.join("")}</div>` : ""}
+        <div class="pie">
+          <button type="button" class="btn-compartir" id="btn-compartir">📤 Compartir</button>
+          <canvas id="qr-canvas"></canvas>
+        </div>
+      </div>
+      <p class="marca">CRM BNI · Billetera Virtual</p>
+    `;
+
+    if (window.QRCode) {
+      QRCode.toCanvas(document.getElementById("qr-canvas"), location.href, { width: 80, margin: 1, color: { dark: "#0F1B3D" } });
+    }
+
+    document.getElementById("btn-compartir").addEventListener("click", async () => {
+      const datos = { title: t.nombre, text: `Tarjeta digital de ${t.nombre}`, url: location.href };
+      if (navigator.share) {
+        try { await navigator.share(datos); return; } catch { /* el usuario canceló */ }
+      }
+      await navigator.clipboard.writeText(location.href);
+      alert("Link copiado al portapapeles.");
+    });
+  }
+
+  cargar();
+</script>
+</body>
+</html>

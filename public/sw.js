@@ -1,4 +1,4 @@
-const CACHE_NAME = "billetera-v7";
+const CACHE_NAME = "billetera-v8";
 const APP_SHELL = [
   "/manifest.json",
   "/icons/icon-192.png",
@@ -14,7 +14,7 @@ const APP_SHELL = [
 // la app, no un asset estático como un ícono).
 const RUTAS_DINAMICAS = ["/", "/app.js", "/admin", "/t", "/activar", "/directorio"];
 function esRutaDinamica(pathname) {
-  return RUTAS_DINAMICAS.includes(pathname) || pathname.startsWith("/src/") || pathname.startsWith("/crm");
+  return RUTAS_DINAMICAS.includes(pathname) || pathname.startsWith("/src/") || pathname.startsWith("/crm") || pathname.startsWith("/card");
 }
 
 self.addEventListener("install", (event) => {
