@@ -8,7 +8,7 @@ import { normalizarUrl, normalizarRedSocial } from "./src/utils/validateUrl.js";
 import { generarSlugUnico } from "./src/utils/slug.js";
 import { generarSalt, hashConSalt, firmarSesion } from "./lib/crypto.js";
 import { SESION_DURACION_MS, cookieSesion, obtenerConfig } from "./lib/sesion.js";
-import { obtenerSesion } from "./src/middleware/authMiddleware.js";
+import { obtenerSesion, esSuperAdmin } from "./src/middleware/authMiddleware.js";
 import { withUsuarios, withTarjetas, withCollection, parseObjectId } from "./lib/db.js";
 
 const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -160,8 +160,10 @@ export async function handleObtenerMiPerfil(request, env) {
 
     // El slug es lo que arma el link público (/card/slug); se genera una
     // sola vez, perezosamente, para no tener que migrar a todos los
-    // networkers existentes de antemano.
-    if (usuario.rol === "networker" && !usuario.slug) {
+    // networkers existentes de antemano. Un superadmin también puede ser
+    // networker de su propio capítulo (p.ej. el fundador del capítulo), así
+    // que también recibe slug/tarjeta propia si la pide.
+    if ((usuario.rol === "networker" || esSuperAdmin(usuario)) && !usuario.slug) {
       const slug = await generarSlugUnico(env, withUsuarios, usuario.nombre, usuario.empresa);
       await withUsuarios(env, (collection) => collection.updateOne({ telefono: usuario.telefono }, { $set: { slug } }));
       usuario = { ...usuario, slug };
@@ -187,7 +189,11 @@ export async function handleObtenerMiPerfil(request, env) {
 // Campos que el propio networker puede editar de su perfil. Todo lo que
 // no esté en esta lista (capituloId, rol, telefono, estado, slug,
 // tarjetaDigitalActiva, dpiHash...) se ignora aunque venga en el body --
-// nunca se lee desde aquí, ni siquiera por error.
+// nunca se lee desde aquí, ni siquiera por error. Única excepción: un
+// superadmin puede asignarse a sí mismo un capítulo (para tener también su
+// propio perfil de networker) -- un networker normal sigue sin poder
+// tocar este campo, eso sigue siendo exclusivo del admin de capítulo vía
+// el módulo Networkers/Usuarios.
 export async function handleActualizarMiPerfil(request, env) {
   const sesion = await obtenerSesion(request, env);
   if (!sesion) return jsonResponse({ error: "No autenticado." }, 401);
@@ -229,6 +235,7 @@ export async function handleActualizarMiPerfil(request, env) {
   if (body.palabrasClave !== undefined) cambios.palabrasClave = texto(body.palabrasClave);
   if (body.horarioAtencion !== undefined) cambios.horarioAtencion = texto(body.horarioAtencion);
   if (logoEmpresa !== undefined) cambios.logoEmpresa = logoEmpresa;
+  if (esSuperAdmin(sesion) && body.capituloId !== undefined) cambios.capituloId = texto(body.capituloId) || null;
 
   if (!cambios.nombre && cambios.nombre !== undefined) {
     return jsonResponse({ error: "El nombre no puede quedar vacío." }, 400);

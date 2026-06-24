@@ -13,6 +13,14 @@ let esferasCache = [];
 let vistaActiva = "dashboard";
 let misPermisos = {}; // { moduloKey: ["ver","crear",...] }, ver cargarMisPermisos()
 
+// Un superadmin puede TAMBIÉN ser networker de su propio capítulo (ver
+// "Mi Perfil"); este switch solo cambia qué muestra el menú -- nunca
+// quita permisos reales, el backend sigue dejándolo entrar a todo. Es
+// puramente para que pueda navegar como lo haría su propio networker sin
+// el ruido de las pantallas de administración.
+let modoNetworkerActivo = false;
+const MODULOS_OCULTOS_EN_MODO_NETWORKER = ["capitulos", "usuarios", "configuracion"];
+
 const SECCIONES = [
   { id: "dashboard", label: "Dashboard", icono: "📊" },
   { id: "capitulos", label: "Capítulos", icono: "🏷️", soloSuperAdmin: true },
@@ -227,6 +235,29 @@ document.getElementById("btn-salir-ver-como").addEventListener("click", async ()
   location.reload();
 });
 
+document.getElementById("btn-modo-networker").addEventListener("click", async () => {
+  modoNetworkerActivo = !modoNetworkerActivo;
+  localStorage.setItem(`modoNetworker_${usuarioActual.telefono}`, String(modoNetworkerActivo));
+
+  // Al activarlo, se cambia a SU PROPIO capítulo (si ya lo tiene asignado
+  // en Mi Perfil) -- si no, se queda en el que tenía seleccionado como
+  // administrador, para no dejarlo sin nada que ver.
+  if (modoNetworkerActivo) {
+    const { ok, data } = await api("/api/mi-perfil");
+    if (ok && data.capituloId) {
+      capituloIdActivo = data.capituloId;
+      capituloNombreActivo = data.capituloNombre || "";
+    }
+  }
+
+  renderModoNetworkerBoton();
+  renderTopbarCapitulo();
+  renderSidebar();
+  renderBottomNav();
+  vistaActiva = "dashboard";
+  await renderVista();
+});
+
 // ---------- Menú lateral en celular (drawer) ----------
 function abrirSidebarMovil() {
   document.getElementById("sidebar").classList.add("abierto");
@@ -268,6 +299,8 @@ async function mostrarApp() {
     }
   }
 
+  modoNetworkerActivo = localStorage.getItem(`modoNetworker_${usuarioActual.telefono}`) === "true";
+  renderModoNetworkerBoton();
   renderTopbarCapitulo();
   renderSidebar();
   renderBottomNav();
@@ -294,12 +327,20 @@ function renderTopbarCapitulo() {
   }
 }
 
+function renderModoNetworkerBoton() {
+  const btn = document.getElementById("btn-modo-networker");
+  if (!esSuperAdmin()) { btn.style.display = "none"; return; }
+  btn.style.display = "block";
+  btn.textContent = modoNetworkerActivo ? "🔄 Ver como administrador" : "🔄 Ver como networker";
+}
+
 function renderSidebar() {
   const nav = document.getElementById("sidebar-nav");
   nav.innerHTML = SECCIONES.filter((s) =>
     (!s.soloSuperAdmin || esSuperAdmin()) &&
-    (!s.soloNetworker || usuarioActual.rol === "networker") &&
-    (s.proximamente || s.soloNetworker || puedeVer(s.id))
+    (!s.soloNetworker || usuarioActual.rol === "networker" || esSuperAdmin()) &&
+    (s.proximamente || s.soloNetworker || puedeVer(s.id)) &&
+    !(modoNetworkerActivo && MODULOS_OCULTOS_EN_MODO_NETWORKER.includes(s.id))
   )
     .map((s) => {
       const claseExtra = s.proximamente ? "proximamente" : (s.id === vistaActiva ? "activo" : "");
@@ -1838,12 +1879,17 @@ async function renderMiPerfil(cont) {
   mpFotoNueva = undefined;
   mpLogoNueva = undefined;
 
-  const [{ ok, data: perfil }, { data: esferas }] = await Promise.all([
-    api("/api/mi-perfil"),
-    api(conCapitulo("/api/esferas"))
-  ]);
+  const { ok, data: perfil } = await api("/api/mi-perfil");
   if (!ok) { cont.innerHTML = `<div class="estado-vacio">${escapeHtml(perfil.error || "No se pudo cargar tu perfil.")}</div>`; return; }
-  const listaEsferas = Array.isArray(esferas) ? esferas : [];
+
+  // Las esferas son las del capítulo PROPIO de este perfil, no las del
+  // capítulo que el superadmin esté mirando en la barra superior --
+  // pueden ser distintos.
+  let listaEsferas = [];
+  if (perfil.capituloId) {
+    const { data: esferas } = await api(`/api/esferas?capituloId=${perfil.capituloId}`);
+    listaEsferas = Array.isArray(esferas) ? esferas : [];
+  }
 
   cont.innerHTML = `
     <div class="vista-header"><div><div class="vista-titulo">Mi Perfil</div><div class="vista-sub">Tu información personal y tu tarjeta digital</div></div></div>
@@ -1882,7 +1928,11 @@ async function renderMiPerfil(cont) {
         <div class="campo"><label>Esfera</label>
           <select id="mp-esfera"><option value="">—</option>${listaEsferas.map((e) => `<option value="${e._id}" ${perfil.esferaId === e._id ? "selected" : ""}>${escapeHtml(e.nombre)}</option>`).join("")}</select>
         </div>
-        <div class="campo"><label>Capítulo (solo lo asigna tu administrador)</label><input value="${escapeHtml(perfil.capituloNombre || "—")}" disabled></div>
+        <div class="campo"><label>Capítulo${esSuperAdmin() ? "" : " (solo lo asigna tu administrador)"}</label>
+          ${esSuperAdmin()
+            ? `<select id="mp-capitulo"><option value="">Ninguno (solo administración)</option>${capitulosDisponibles.map((c) => `<option value="${c._id}" ${perfil.capituloId === c._id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("")}</select>`
+            : `<input value="${escapeHtml(perfil.capituloNombre || "—")}" disabled>`}
+        </div>
       </div>
     </div>
 
@@ -1991,11 +2041,15 @@ async function renderMiPerfil(cont) {
     };
     if (mpFotoNueva !== undefined) cuerpo.fotoPerfil = mpFotoNueva;
     if (mpLogoNueva !== undefined) cuerpo.logoEmpresa = mpLogoNueva;
+    const selectorCapitulo = document.getElementById("mp-capitulo");
+    const capituloCambio = esSuperAdmin() && selectorCapitulo && selectorCapitulo.value !== (perfil.capituloId || "");
+    if (selectorCapitulo) cuerpo.capituloId = selectorCapitulo.value || null;
 
     const { ok: okGuardar, data: dataGuardar } = await api("/api/mi-perfil", { method: "PUT", body: JSON.stringify(cuerpo) });
     if (!okGuardar) { msg.className = "form-mensaje error"; msg.textContent = dataGuardar.error || "No se pudo guardar."; return; }
     msg.className = "form-mensaje ok";
     msg.textContent = "Perfil actualizado. Tu tarjeta digital ya refleja estos cambios.";
+    if (capituloCambio) { await renderVista(); return; }
     await renderTarjetaMiPerfil();
   });
 
@@ -2105,7 +2159,7 @@ function construirPasosTour() {
   const modulos = SECCIONES.filter((s) =>
     !s.proximamente &&
     (!s.soloSuperAdmin || esSuperAdmin()) &&
-    (!s.soloNetworker || usuarioActual.rol === "networker") &&
+    (!s.soloNetworker || usuarioActual.rol === "networker" || esSuperAdmin()) &&
     (s.soloNetworker || puedeVer(s.id))
   );
   return [

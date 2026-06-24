@@ -242,12 +242,15 @@ const PROYECCION_CARD_PUBLICO = {
 // /api/tarjeta-publica/:id (que lee un documento aparte en "tarjetas"),
 // esto lee en vivo del propio perfil del networker -- una sola fuente de
 // datos, sin nada que sincronizar ni que pueda quedar desactualizado.
+// Busca por slug solamente (sin filtrar por rol): un superadmin que
+// también es networker de su propio capítulo puede tener slug propio sin
+// dejar de ser superadmin (ver handleObtenerMiPerfil en usuarios.js).
 export async function handleObtenerCardPublico(request, env, slug) {
   if (!slug) return jsonResponse({ error: "Falta el slug." }, 400);
 
   try {
     const networker = await withUsuarios(env, (collection) =>
-      collection.findOne({ slug, rol: "networker" }, { projection: PROYECCION_CARD_PUBLICO })
+      collection.findOne({ slug }, { projection: PROYECCION_CARD_PUBLICO })
     );
     if (!networker) return jsonResponse({ error: "Tarjeta no encontrada." }, 404);
     if (networker.tarjetaDigitalActiva === false) {
