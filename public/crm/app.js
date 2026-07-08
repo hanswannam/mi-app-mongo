@@ -1256,11 +1256,18 @@ function abrirFormNetworket(nw) {
   }
 
   document.getElementById("btn-guardar-nw").addEventListener("click", async () => {
+    const videoRaw = document.getElementById("nw-video").value.trim();
+    const videoId = (() => {
+      for (const re of [/youtu\.be\/([a-zA-Z0-9_-]{11})/, /[?&]v=([a-zA-Z0-9_-]{11})/, /\/embed\/([a-zA-Z0-9_-]{11})/, /\/shorts\/([a-zA-Z0-9_-]{11})/]) {
+        const m = videoRaw.match(re); if (m) return m[1];
+      }
+      return videoRaw;
+    })();
     const cuerpo = {
       fechaNetworket: document.getElementById("nw-fecha").value,
       nombreNetworker: document.getElementById("nw-nombre").value.trim(),
       cupos: parseInt(document.getElementById("nw-cupos").value, 10) || 5,
-      videoId: document.getElementById("nw-video").value.trim(),
+      videoId,
       capituloId: capituloIdActivo
     };
     if (esEdicion) cuerpo.activo = document.getElementById("nw-activo").checked;
