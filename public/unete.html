@@ -172,6 +172,33 @@
     font-size: 14px;
   }
   .video-ph .ph-icon { font-size: 44px; opacity: 0.35; }
+  /* Capa que bloquea clicks sobre el iframe — impide pausar, adelantar o
+     retroceder el video. z-index mayor que el iframe (z-index: auto). */
+  .video-bloq {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: none;
+  }
+  /* Botón de play propio que se muestra antes de que el usuario inicie el video */
+  .video-bloq .btn-play {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    border: 2.5px solid rgba(255,255,255,0.85);
+    border-radius: 50px;
+    padding: 14px 36px;
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.3px;
+    transition: background 0.15s, transform 0.1s;
+    backdrop-filter: blur(4px);
+  }
+  .video-bloq .btn-play:hover { background: rgba(0,0,0,0.85); transform: translate(-50%,-50%) scale(1.04); }
   .video-hint {
     text-align: center;
     padding: 11px;
@@ -307,6 +334,10 @@
         <div>Cargando video…</div>
       </div>
       <div id="ytplayer"></div>
+      <!-- Capa encima del iframe: bloquea pausa/seek; botón play propio -->
+      <div class="video-bloq" id="video-bloq">
+        <button class="btn-play" id="btn-play-video">▶ Ver video</button>
+      </div>
     </div>
     <div class="video-hint" id="video-hint" style="display:none;">
       <a id="btn-saltar" style="font-size:12px;color:var(--texto-claro);cursor:pointer;">Ir al formulario →</a>
@@ -446,25 +477,48 @@
   }
 
   function onYouTubeIframeAPIReady() {
-    const ph = document.getElementById("video-ph");
+    const ph   = document.getElementById("video-ph");
+    const bloq = document.getElementById("video-bloq");
+    const btnPlay = document.getElementById("btn-play-video");
     ph.style.display = "none";
+
     ytPlayer = new YT.Player("ytplayer", {
       width: "100%",
       height: "100%",
       videoId: VIDEO_ID_LIMPIO,
-      playerVars: { autoplay: 0, rel: 0, modestbranding: 1, origin: location.origin },
+      playerVars: {
+        autoplay: 0,
+        controls: 0,       // sin barra de controles
+        disablekb: 1,      // sin atajos de teclado
+        fs: 0,             // sin botón de pantalla completa
+        iv_load_policy: 3, // sin anotaciones
+        rel: 0,
+        modestbranding: 1,
+        origin: location.origin
+      },
       events: {
-        onReady() { iniciarCheckFin(); },
+        onReady() {
+          // Mostrar la capa con el botón de play propio
+          bloq.style.display = "block";
+          iniciarCheckFin();
+        },
         onStateChange(e) {
           if (e.data === YT.PlayerState.ENDED) mostrarFormulario();
         },
         onError() {
-          // Si el video falla (restringido, ID inválido, etc.) mostramos el form
           ph.innerHTML = '<div class="ph-icon" style="font-size:32px;">⚠️</div><div>No se pudo cargar el video</div>';
           ph.style.display = "flex";
+          bloq.style.display = "none";
           setTimeout(mostrarFormulario, 2000);
         }
       }
+    });
+
+    // Botón play propio: inicia el video y se oculta; la capa bloq permanece
+    // para seguir bloqueando pausa y seek durante toda la reproducción.
+    btnPlay.addEventListener("click", () => {
+      ytPlayer.playVideo();
+      btnPlay.style.display = "none";
     });
   }
 
