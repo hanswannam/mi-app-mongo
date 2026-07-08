@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Únete al Networket · BNI</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --azul: #0F1B3D;
+    --azul-medio: #1B2A57;
+    --dorado: #D9A441;
+    --dorado-oscuro: #B9842A;
+    --urgencia: #C0392B;
+    --blanco: #FFFFFF;
+    --gris-claro: #F4F6FA;
+    --gris-borde: #E3E7EF;
+    --texto: #1B2333;
+    --texto-claro: #6B7280;
+    --verde: #15803D;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--gris-claro);
+    color: var(--texto);
+  }
+
+  /* ── FOMO banner ── */
+  .fomo {
+    background: var(--urgencia);
+    color: #fff;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .fomo-msg { display: flex; align-items: center; gap: 7px; }
+  .fomo-pill {
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-weight: 800;
+    font-size: 13px;
+  }
+  .fomo-cd { display: flex; gap: 8px; align-items: center; }
+  .cd-bloque {
+    text-align: center;
+    background: rgba(0,0,0,0.25);
+    border-radius: 5px;
+    padding: 3px 8px;
+    min-width: 42px;
+  }
+  .cd-num { font-size: 17px; font-weight: 800; line-height: 1.1; display: block; }
+  .cd-lbl { font-size: 9px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(160deg, var(--azul) 0%, var(--azul-medio) 100%);
+    color: #fff;
+    text-align: center;
+    padding: 44px 24px 52px;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(217,164,65,0.15);
+    border: 1px solid rgba(217,164,65,0.35);
+    color: var(--dorado);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    border-radius: 20px;
+    padding: 5px 14px;
+    margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-size: clamp(22px, 5.5vw, 38px);
+    font-weight: 800;
+    line-height: 1.22;
+    margin-bottom: 14px;
+  }
+  .hero h1 em { color: var(--dorado); font-style: normal; }
+  .hero-sub {
+    font-size: 15px;
+    color: rgba(255,255,255,0.72);
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  .hero-inv {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 7px 18px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 600;
+  }
+
+  /* ── Main ── */
+  .wrap {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+
+  /* ── Info evento ── */
+  .info-evento {
+    background: var(--blanco);
+    border: 1px solid var(--gris-borde);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 26px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 14px;
+  }
+  .info-ev-icon { font-size: 28px; flex-shrink: 0; }
+  .info-ev-titulo { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .info-ev-fecha { color: var(--texto-claro); }
+
+  /* ── Video ── */
+  .video-sec { margin-bottom: 24px; }
+  .video-sec h2 { font-size: 17px; font-weight: 700; margin-bottom: 14px; }
+  .video-wrap {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #111;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.18);
+  }
+  .video-wrap #ytplayer,
+  .video-wrap iframe {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    border: none;
+  }
+  .video-ph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--azul);
+    color: rgba(255,255,255,0.45);
+    font-size: 14px;
+  }
+  .video-ph .ph-icon { font-size: 44px; opacity: 0.35; }
+  .video-hint {
+    text-align: center;
+    padding: 11px;
+    font-size: 12px;
+    color: var(--texto-claro);
+    display: none;
+  }
+  .video-hint a {
+    color: var(--azul);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* ── Formulario ── */
+  .form-sec {
+    background: var(--blanco);
+    border: 1px solid var(--gris-borde);
+    border-radius: 10px;
+    padding: 28px;
+    display: none;
+    animation: fadeUp 0.3s ease;
+  }
+  .form-sec.visible { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .form-sec h2 { font-size: 19px; font-weight: 800; margin-bottom: 6px; }
+  .form-sec p { font-size: 13px; color: var(--texto-claro); margin-bottom: 22px; line-height: 1.6; }
+
+  .campo { margin-bottom: 16px; }
+  .campo label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--texto); text-transform: uppercase; letter-spacing: 0.4px; }
+  .campo input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--gris-borde);
+    border-radius: 7px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--texto);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: var(--blanco);
+  }
+  .campo input:focus {
+    border-color: var(--azul);
+    box-shadow: 0 0 0 3px rgba(15,27,61,0.08);
+  }
+  .campo-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 480px) { .campo-fila { grid-template-columns: 1fr; } }
+
+  .btn-enviar {
+    width: 100%;
+    margin-top: 8px;
+    padding: 15px;
+    background: var(--dorado);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-enviar:hover:not(:disabled) { background: var(--dorado-oscuro); transform: translateY(-1px); }
+  .btn-enviar:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .form-msg { text-align: center; font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .form-msg.error { color: var(--urgencia); }
+  .form-msg.ok { color: var(--verde); font-weight: 600; }
+
+  /* ── Gracias ── */
+  .gracias {
+    background: var(--blanco);
+    border: 1px solid var(--gris-borde);
+    border-radius: 10px;
+    padding: 48px 28px;
+    text-align: center;
+    display: none;
+    animation: fadeUp 0.3s ease;
+  }
+  .gracias.visible { display: block; }
+  .gracias .g-icon { font-size: 56px; margin-bottom: 18px; }
+  .gracias h2 { font-size: 22px; font-weight: 800; margin-bottom: 10px; color: var(--azul); }
+  .gracias p { font-size: 15px; color: var(--texto-claro); line-height: 1.65; max-width: 420px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<!-- FOMO sticky -->
+<div class="fomo" id="fomo">
+  <div class="fomo-msg">
+    🔥 <span id="fomo-txt">¡Cupos muy limitados para este Networket!</span>
+  </div>
+  <div class="fomo-cd" id="fomo-cd">
+    <div class="cd-bloque"><span class="cd-num" id="cd-d">--</span><span class="cd-lbl">días</span></div>
+    <div class="cd-bloque"><span class="cd-num" id="cd-h">--</span><span class="cd-lbl">horas</span></div>
+    <div class="cd-bloque"><span class="cd-num" id="cd-m">--</span><span class="cd-lbl">min</span></div>
+    <div class="cd-bloque"><span class="cd-num" id="cd-s">--</span><span class="cd-lbl">seg</span></div>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge" id="hero-badge">BNI</div>
+  <h1>Descubre el networking que <em>transforma negocios</em></h1>
+  <p class="hero-sub">Únete a uno de los capítulos más activos. Mira el video y regístrate para asistir como invitado al próximo Networket.</p>
+  <div class="hero-inv" id="hero-inv" style="display:none;">
+    👤 <span id="hero-inv-nombre"></span> te invita
+  </div>
+</div>
+
+<!-- Contenido -->
+<div class="wrap">
+
+  <!-- Info del evento -->
+  <div class="info-evento" id="info-ev" style="display:none;">
+    <div class="info-ev-icon">📅</div>
+    <div>
+      <div class="info-ev-titulo" id="info-ev-cap"></div>
+      <div class="info-ev-fecha" id="info-ev-fecha"></div>
+    </div>
+  </div>
+
+  <!-- Video -->
+  <div class="video-sec">
+    <h2>Mira el video antes de registrarte</h2>
+    <div class="video-wrap" id="video-wrap">
+      <div class="video-ph" id="video-ph">
+        <div class="ph-icon">▶</div>
+        <div>Cargando video…</div>
+      </div>
+      <div id="ytplayer"></div>
+    </div>
+    <div class="video-hint" id="video-hint">
+      ¿Ya terminaste de ver? <a id="btn-saltar">Ir al formulario →</a>
+    </div>
+  </div>
+
+  <!-- Formulario -->
+  <div class="form-sec" id="form-sec">
+    <h2>¡Quiero asistir al Networket!</h2>
+    <p>Completa tus datos y un miembro del capítulo se pondrá en contacto para confirmar tu lugar.</p>
+    <div class="campo">
+      <label>Nombre completo *</label>
+      <input type="text" id="f-nombre" placeholder="Tu nombre completo" maxlength="120" autocomplete="name">
+    </div>
+    <div class="campo">
+      <label>Profesión / Empresa *</label>
+      <input type="text" id="f-profesion" placeholder="¿A qué te dedicas?" maxlength="120">
+    </div>
+    <div class="campo-fila">
+      <div class="campo">
+        <label>Teléfono / WhatsApp *</label>
+        <input type="tel" id="f-telefono" placeholder="Tu número" maxlength="20" autocomplete="tel">
+      </div>
+      <div class="campo">
+        <label>Correo electrónico *</label>
+        <input type="email" id="f-correo" placeholder="tu@correo.com" maxlength="120" autocomplete="email">
+      </div>
+    </div>
+    <button class="btn-enviar" id="btn-enviar">Quiero mi lugar en el Networket 🎯</button>
+    <p class="form-msg" id="form-msg"></p>
+  </div>
+
+  <!-- Gracias -->
+  <div class="gracias" id="gracias">
+    <div class="g-icon">🎉</div>
+    <h2>¡Registro exitoso!</h2>
+    <p>Gracias por registrarte. Pronto un miembro del capítulo se comunicará contigo para confirmar tu lugar en el Networket.</p>
+  </div>
+
+</div>
+
+<script>
+  const P = new URLSearchParams(location.search);
+  const CAP_ID    = P.get("cap") || "";
+  const FECHA     = P.get("fecha") || "";
+  const INV_NOM   = P.get("inv") || "";
+  const INV_TEL   = P.get("invtel") || "";
+  const VIDEO_ID  = P.get("video") || "";
+  const NOM_CAP   = P.get("nom_cap") || "BNI";
+  const CUPOS     = P.get("cupos") || "5";
+
+  // Texto dinámico
+  document.getElementById("hero-badge").textContent = NOM_CAP;
+  document.getElementById("fomo-txt").textContent =
+    `¡Solo quedan ${CUPOS} cupos para el Networket de ${NOM_CAP}!`;
+
+  if (INV_NOM) {
+    document.getElementById("hero-inv").style.display = "inline-flex";
+    document.getElementById("hero-inv-nombre").textContent = INV_NOM;
+  }
+
+  if (NOM_CAP || FECHA) {
+    document.getElementById("info-ev").style.display = "flex";
+    document.getElementById("info-ev-cap").textContent = NOM_CAP;
+    if (FECHA) {
+      const f = new Date(FECHA + "T12:00:00");
+      document.getElementById("info-ev-fecha").textContent =
+        f.toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    }
+  }
+
+  // Countdown
+  function tick() {
+    if (!FECHA) { document.getElementById("fomo-cd").style.display = "none"; return; }
+    const target = new Date(FECHA + "T08:00:00");
+    let diff = Math.max(0, target - Date.now());
+    const d = Math.floor(diff / 86400000); diff %= 86400000;
+    const h = Math.floor(diff / 3600000);  diff %= 3600000;
+    const m = Math.floor(diff / 60000);    diff %= 60000;
+    const s = Math.floor(diff / 1000);
+    const pad = (n) => String(n).padStart(2, "0");
+    document.getElementById("cd-d").textContent = pad(d);
+    document.getElementById("cd-h").textContent = pad(h);
+    document.getElementById("cd-m").textContent = pad(m);
+    document.getElementById("cd-s").textContent = pad(s);
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // Mostrar formulario
+  let hintTimer;
+  function mostrarFormulario() {
+    clearTimeout(hintTimer);
+    document.getElementById("video-hint").style.display = "none";
+    const sec = document.getElementById("form-sec");
+    sec.classList.add("visible");
+    setTimeout(() => sec.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  // YouTube IFrame API
+  let ytPlayer;
+
+  function onYouTubeIframeAPIReady() {
+    document.getElementById("video-ph").style.display = "none";
+    ytPlayer = new YT.Player("ytplayer", {
+      videoId: VIDEO_ID,
+      playerVars: { autoplay: 0, rel: 0, modestbranding: 1 },
+      events: {
+        onStateChange(e) {
+          if (e.data === YT.PlayerState.PLAYING) {
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(() => {
+              document.getElementById("video-hint").style.display = "block";
+            }, 60000);
+          }
+          if (e.data === YT.PlayerState.ENDED) mostrarFormulario();
+        }
+      }
+    });
+  }
+
+  if (VIDEO_ID) {
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  } else {
+    document.getElementById("video-ph").innerHTML =
+      '<div class="ph-icon">📝</div><div>Formulario de registro</div>';
+    setTimeout(mostrarFormulario, 1500);
+  }
+
+  document.getElementById("btn-saltar").addEventListener("click", mostrarFormulario);
+
+  // Envío
+  document.getElementById("btn-enviar").addEventListener("click", async () => {
+    const nombre   = document.getElementById("f-nombre").value.trim();
+    const profesion = document.getElementById("f-profesion").value.trim();
+    const telefono = document.getElementById("f-telefono").value.trim();
+    const correo   = document.getElementById("f-correo").value.trim();
+    const msg      = document.getElementById("form-msg");
+
+    if (!nombre)   { msg.className = "form-msg error"; msg.textContent = "El nombre es obligatorio."; return; }
+    if (!telefono) { msg.className = "form-msg error"; msg.textContent = "El teléfono es obligatorio."; return; }
+    if (!correo)   { msg.className = "form-msg error"; msg.textContent = "El correo es obligatorio."; return; }
+    if (!CAP_ID)   { msg.className = "form-msg error"; msg.textContent = "Enlace inválido: falta el capítulo."; return; }
+
+    const btn = document.getElementById("btn-enviar");
+    btn.disabled = true;
+    btn.textContent = "Enviando…";
+    msg.textContent = "";
+
+    try {
+      const resp = await fetch("/api/invitados-funnel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre, profesion, telefono, correo,
+          capituloId: CAP_ID,
+          fechaNetworket: FECHA || null,
+          invitadoPorNombre: INV_NOM,
+          invitadoPorTelefono: INV_TEL
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        msg.className = "form-msg error";
+        msg.textContent = data.error || "No se pudo registrar. Intenta de nuevo.";
+        btn.disabled = false;
+        btn.textContent = "Quiero mi lugar en el Networket 🎯";
+        return;
+      }
+      document.getElementById("form-sec").style.display = "none";
+      const g = document.getElementById("gracias");
+      g.classList.add("visible");
+      setTimeout(() => g.scrollIntoView({ behavior: "smooth" }), 50);
+    } catch {
+      msg.className = "form-msg error";
+      msg.textContent = "Error de conexión. Intenta de nuevo.";
+      btn.disabled = false;
+      btn.textContent = "Quiero mi lugar en el Networket 🎯";
+    }
+  });
+</script>
+</body>
+</html>

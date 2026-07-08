@@ -19,7 +19,7 @@ import { withCollection } from "./lib/db.js";
 
 export const MODULOS = [
   "dashboard", "capitulos", "usuarios", "networkers", "tarjetas", "esferas",
-  "referencias", "gpnc", "unoauno", "visitantes", "calendario", "capacitacion",
+  "referencias", "gpnc", "unoauno", "visitantes", "invitados", "calendario", "capacitacion",
   "recursos", "asistencia", "mensajes", "metas", "rankings", "reportes", "configuracion"
 ];
 
@@ -41,6 +41,7 @@ const MATRIZ_ROLES = {
     gpnc: set("ver", "crear", "editar", "exportar"),
     unoauno: set("ver", "crear", "editar"),
     visitantes: set("ver", "crear", "editar", "exportar"),
+    invitados: set("ver", "crear", "editar", "exportar"),
     calendario: set("ver", "crear", "editar", "eliminar"),
     capacitacion: set("ver", "crear", "editar", "eliminar"),
     recursos: set("ver", "crear", "editar", "eliminar"),
@@ -61,6 +62,7 @@ const MATRIZ_ROLES = {
     gpnc: set("ver"),
     unoauno: set("ver", "crear"),
     visitantes: set("ver", "crear"),
+    invitados: set("ver", "crear"),
     calendario: set("ver", "crear", "editar"),
     capacitacion: set("ver"),
     recursos: set("ver"),

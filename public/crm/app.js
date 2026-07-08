@@ -33,6 +33,7 @@ const SECCIONES = [
   { id: "gpnc", label: "GPNC", icono: "🤝" },
   { id: "unoauno", label: "Uno a Uno", icono: "☕" },
   { id: "visitantes", label: "Visitantes", icono: "🚪" },
+  { id: "invitados", label: "Invitados", icono: "🎯" },
   { id: "calendario", label: "Calendario", icono: "📅" },
   { id: "capacitacion", label: "Capacitación", icono: "🎓" },
   { id: "recursos", label: "Recursos", icono: "📚" },
@@ -45,7 +46,7 @@ const SECCIONES = [
 
 const NOMBRES_MODULO = {
   dashboard: "Dashboard", networkers: "Networkers", tarjetas: "Tarjetas Digitales", esferas: "Esferas",
-  referencias: "Referencias", gpnc: "GPNC", unoauno: "Uno a Uno", visitantes: "Visitantes",
+  referencias: "Referencias", gpnc: "GPNC", unoauno: "Uno a Uno", visitantes: "Visitantes", invitados: "Invitados",
   calendario: "Calendario", capacitacion: "Capacitación", recursos: "Recursos", asistencia: "Asistencia",
   mensajes: "Mensajes", metas: "Metas", rankings: "Rankings", reportes: "Reportes"
 };
@@ -401,6 +402,7 @@ async function renderVista() {
     tarjetas: renderTarjetas,
     esferas: renderEsferas,
     visitantes: renderVisitantes,
+    invitados: renderInvitados,
     gpnc: renderGpnc,
     unoauno: renderUnoAUno,
     referencias: renderReferencias,
@@ -1091,6 +1093,148 @@ function abrirFormVisitante(visitante) {
     if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
     cerrarPanel();
     await renderVista();
+  });
+}
+
+// ---------- Invitados Funnel ----------
+async function renderInvitados(cont) {
+  const puedeCrear = puede("invitados", "crear");
+  cont.innerHTML = `
+    <div class="vista-header">
+      <div><div class="vista-titulo">Invitados</div><div class="vista-sub">Prospectos que llegaron a través del funnel de captación</div></div>
+      ${puedeCrear ? '<button class="btn-primario" id="btn-generar-enlace">🔗 Generar enlace</button>' : ""}
+    </div>
+    <div class="tabla-wrap"><table class="tabla-crm">
+      <thead><tr><th>Nombre</th><th>Profesión</th><th>Teléfono</th><th>Correo</th><th>Invitado por</th><th>Fecha Networket</th><th>Registrado</th><th>Estado</th></tr></thead>
+      <tbody id="tabla-invitados"></tbody>
+    </table></div>`;
+
+  if (puedeCrear) {
+    document.getElementById("btn-generar-enlace").addEventListener("click", () => abrirGenerarEnlaceInvitados());
+  }
+
+  const { ok, data } = await api(conCapitulo("/api/invitados-funnel"));
+  const tbody = document.getElementById("tabla-invitados");
+  if (!ok || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="estado-vacio">Todavía no hay invitados registrados desde el funnel.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((inv) => `
+    <tr data-id="${inv._id}" style="cursor:pointer;">
+      <td><strong>${escapeHtml(inv.nombre)}</strong></td>
+      <td>${escapeHtml(inv.profesion || "—")}</td>
+      <td>${escapeHtml(inv.telefono)}</td>
+      <td>${escapeHtml(inv.correo || "—")}</td>
+      <td>${escapeHtml(inv.invitadoPorNombre || "—")}</td>
+      <td>${formatFecha(inv.fechaNetworket)}</td>
+      <td>${formatFecha(inv.creadoEn)}</td>
+      <td>${pill(inv.estado || "nuevo", inv.estado || "nuevo")}</td>
+    </tr>`).join("");
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    tr.addEventListener("click", () => abrirDetalleInvitado(data.find((i) => i._id === tr.dataset.id)));
+  });
+}
+
+function abrirDetalleInvitado(inv) {
+  const ESTADOS = ["nuevo", "contactado", "interesado", "aplicado", "descartado"];
+  abrirPanel("Detalle del invitado", `
+    <div class="campo-fila">
+      <div class="campo"><label>Nombre</label><input value="${escapeHtml(inv.nombre)}" disabled></div>
+      <div class="campo"><label>Profesión</label><input value="${escapeHtml(inv.profesion || "")}" disabled></div>
+    </div>
+    <div class="campo-fila">
+      <div class="campo"><label>Teléfono</label><input value="${escapeHtml(inv.telefono)}" disabled></div>
+      <div class="campo"><label>Correo</label><input value="${escapeHtml(inv.correo || "")}" disabled></div>
+    </div>
+    <div class="campo-fila">
+      <div class="campo"><label>Invitado por</label><input value="${escapeHtml(inv.invitadoPorNombre || "—")}" disabled></div>
+      <div class="campo"><label>Fecha networket</label><input value="${inv.fechaNetworket ? new Date(inv.fechaNetworket).toLocaleDateString("es-GT") : "—"}" disabled></div>
+    </div>
+    <div class="campo-fila">
+      <div class="campo"><label>Registrado el</label><input value="${formatFecha(inv.creadoEn)}" disabled></div>
+      <div class="campo"><label>Estado</label>
+        <select id="det-inv-estado">${ESTADOS.map((e) => `<option value="${e}" ${(inv.estado || "nuevo") === e ? "selected" : ""}>${e}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="campo"><label>Notas de seguimiento</label><textarea id="det-inv-notas" rows="3">${escapeHtml(inv.notas || "")}</textarea></div>
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-inv-det">Guardar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-inv-det-msg"></p>
+  `);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+  document.getElementById("btn-guardar-inv-det").addEventListener("click", async () => {
+    const cuerpo = {
+      estado: document.getElementById("det-inv-estado").value,
+      notas: document.getElementById("det-inv-notas").value.trim()
+    };
+    const { ok, data } = await api(`/api/invitados-funnel/${inv._id}`, { method: "PUT", body: JSON.stringify(cuerpo) });
+    const msg = document.getElementById("form-inv-det-msg");
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    cerrarPanel();
+    await renderVista();
+  });
+}
+
+function abrirGenerarEnlaceInvitados() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const nombreNW = escapeHtml(usuarioActual?.nombre || "");
+  const telNW = usuarioActual?.telefono || "";
+  abrirPanel("Generar enlace de captación", `
+    <p style="font-size:13px;color:var(--texto-claro);margin-bottom:16px;">
+      Genera un enlace único para invitar personas al próximo Networket. Compártelo por WhatsApp, correo o redes sociales.
+    </p>
+    <div class="campo"><label>Fecha del networket *</label><input type="date" id="gl-fecha" value="${hoy}"></div>
+    <div class="campo"><label>Tu nombre (quien invita)</label><input id="gl-nombre" value="${nombreNW}" placeholder="Nombre del networker"></div>
+    <div class="campo"><label>Cupos disponibles</label><input type="number" id="gl-cupos" value="5" min="1" max="99"></div>
+    <div class="campo"><label>ID del video de YouTube (opcional)</label>
+      <input id="gl-video" placeholder="Ej: dQw4w9WgXcQ (solo el ID, no la URL completa)">
+    </div>
+    <div class="campo"><label>Enlace generado</label>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input id="gl-url" readonly style="font-size:11px;background:var(--gris-claro);flex:1;">
+        <button class="btn-secundario" id="btn-copiar-gl" style="white-space:nowrap;padding:10px 14px;flex-shrink:0;">Copiar</button>
+      </div>
+    </div>
+    <div class="panel-acciones" style="margin-top:6px;">
+      <button class="btn-primario" id="btn-generar-gl">Actualizar</button>
+      <button class="btn-secundario" id="btn-cancelar-panel">Cerrar</button>
+    </div>
+  `);
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+
+  function generarUrl() {
+    const p = new URLSearchParams();
+    p.set("cap", capituloIdActivo);
+    p.set("nom_cap", capituloNombreActivo);
+    const fecha = document.getElementById("gl-fecha").value;
+    const nombre = document.getElementById("gl-nombre").value.trim();
+    const cupos = document.getElementById("gl-cupos").value || "5";
+    const video = document.getElementById("gl-video").value.trim();
+    if (fecha) p.set("fecha", fecha);
+    if (nombre) p.set("inv", nombre);
+    if (telNW) p.set("invtel", telNW);
+    if (cupos) p.set("cupos", cupos);
+    if (video) p.set("video", video);
+    document.getElementById("gl-url").value = `${location.origin}/unete?${p.toString()}`;
+  }
+
+  generarUrl();
+  document.getElementById("btn-generar-gl").addEventListener("click", generarUrl);
+  ["gl-fecha", "gl-nombre", "gl-cupos", "gl-video"].forEach((id) =>
+    document.getElementById(id).addEventListener("input", generarUrl)
+  );
+  document.getElementById("btn-copiar-gl").addEventListener("click", async () => {
+    const url = document.getElementById("gl-url").value;
+    try {
+      await navigator.clipboard.writeText(url);
+      const btn = document.getElementById("btn-copiar-gl");
+      btn.textContent = "¡Copiado!";
+      setTimeout(() => { btn.textContent = "Copiar"; }, 2000);
+    } catch {
+      document.getElementById("gl-url").select();
+    }
   });
 }
 
@@ -2179,6 +2323,7 @@ const DESCRIPCION_MODULO_TOUR = {
   gpnc: "Gracias Por Negocio Concretado: registra cuando una referencia se convierte en un negocio real cerrado, con el monto.",
   unoauno: "Agenda tus reuniones individuales con otros networkers para conocerse mejor y encontrar oportunidades de negocio.",
   visitantes: "Registra a las personas que invitas a una reunión y da seguimiento hasta que se conviertan en miembros. Solo ves los que tú invitaste.",
+  invitados: "Landing pages de captación: genera un enlace único por networket con un video y FOMO. Cada prospecto que se registra llega aquí con su nombre, profesión, teléfono y correo.",
   calendario: "El calendario del capítulo: reuniones semanales, capacitaciones, lanzamientos. Cada networker puede agendar y editar lo suyo; el administrador gestiona todo.",
   capacitacion: "Material y sesiones de formación organizadas por el administrador del capítulo, con seguimiento del avance de cada persona.",
   recursos: "Biblioteca de enlaces útiles para el capítulo: manuales, plantillas, videos.",

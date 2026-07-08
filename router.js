@@ -109,6 +109,11 @@ import {
   handleCrearMensaje,
   handleMarcarMensajeLeido
 } from "./mensajes.js";
+import {
+  handleRegistrarInvitadoFunnel,
+  handleListInvitadosFunnel,
+  handleActualizarInvitadoFunnel
+} from "./invitados_funnel.js";
 
 export async function enrutar(request, env) {
   const url = new URL(request.url);
@@ -308,6 +313,12 @@ export async function enrutar(request, env) {
 
   const matchMensajeLeido = pathname.match(/^\/api\/mensajes\/([^/]+)\/leido$/);
   if (matchMensajeLeido && metodo === "PATCH") return handleMarcarMensajeLeido(request, env, decodeURIComponent(matchMensajeLeido[1]));
+
+  if (pathname === "/api/invitados-funnel" && metodo === "POST") return handleRegistrarInvitadoFunnel(request, env);
+  if (pathname === "/api/invitados-funnel" && metodo === "GET") return handleListInvitadosFunnel(request, env);
+
+  const matchInvitadoFunnelId = pathname.match(/^\/api\/invitados-funnel\/([^/]+)$/);
+  if (matchInvitadoFunnelId && metodo === "PUT") return handleActualizarInvitadoFunnel(request, env, decodeURIComponent(matchInvitadoFunnelId[1]));
 
   // Tarjeta pública del networker con URL amigable (/card/su-slug). Es una
   // sola página estática (card.html) que lee el slug de la propia URL en
