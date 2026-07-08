@@ -302,8 +302,8 @@
       </div>
       <div id="ytplayer"></div>
     </div>
-    <div class="video-hint" id="video-hint">
-      ¿Ya terminaste de ver? <a id="btn-saltar">Ir al formulario →</a>
+    <div class="video-hint" id="video-hint" style="display:none;">
+      <a id="btn-saltar" style="font-size:12px;color:var(--texto-claro);cursor:pointer;">Ir al formulario →</a>
     </div>
   </div>
 
@@ -390,18 +390,33 @@
   tick();
   setInterval(tick, 1000);
 
-  // Mostrar formulario
-  let hintTimer;
+  // Mostrar formulario (sin scroll brusco — aparece abajo mientras el video sigue)
+  let formMostrado = false;
   function mostrarFormulario() {
-    clearTimeout(hintTimer);
+    if (formMostrado) return;
+    formMostrado = true;
     document.getElementById("video-hint").style.display = "none";
-    const sec = document.getElementById("form-sec");
-    sec.classList.add("visible");
-    setTimeout(() => sec.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    document.getElementById("form-sec").classList.add("visible");
   }
 
   // YouTube IFrame API
   let ytPlayer;
+  let checkInterval;
+
+  // Revisa cada 500 ms cuánto tiempo queda; muestra el form 8 s antes del fin.
+  function iniciarCheckFin() {
+    clearInterval(checkInterval);
+    checkInterval = setInterval(() => {
+      if (!ytPlayer || typeof ytPlayer.getCurrentTime !== "function") return;
+      if (ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) return;
+      const dur = ytPlayer.getDuration();
+      const pos = ytPlayer.getCurrentTime();
+      if (dur > 0 && dur - pos <= 8) {
+        clearInterval(checkInterval);
+        mostrarFormulario();
+      }
+    }, 500);
+  }
 
   function onYouTubeIframeAPIReady() {
     document.getElementById("video-ph").style.display = "none";
@@ -409,13 +424,9 @@
       videoId: VIDEO_ID,
       playerVars: { autoplay: 0, rel: 0, modestbranding: 1 },
       events: {
+        onReady() { iniciarCheckFin(); },
         onStateChange(e) {
-          if (e.data === YT.PlayerState.PLAYING) {
-            clearTimeout(hintTimer);
-            hintTimer = setTimeout(() => {
-              document.getElementById("video-hint").style.display = "block";
-            }, 60000);
-          }
+          // Fallback: si el video termina sin que el check haya disparado
           if (e.data === YT.PlayerState.ENDED) mostrarFormulario();
         }
       }
