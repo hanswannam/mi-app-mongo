@@ -344,6 +344,7 @@
 
 <script>
   const P = new URLSearchParams(location.search);
+  const NET_ID    = P.get("net") || "";
   const CAP_ID    = P.get("cap") || "";
   const FECHA     = P.get("fecha") || "";
   const INV_NOM   = P.get("inv") || "";
@@ -470,6 +471,7 @@
         body: JSON.stringify({
           nombre, profesion, telefono, correo,
           capituloId: CAP_ID,
+          networketId: NET_ID || null,
           fechaNetworket: FECHA || null,
           invitadoPorNombre: INV_NOM,
           invitadoPorTelefono: INV_TEL

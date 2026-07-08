@@ -114,6 +114,12 @@ import {
   handleListInvitadosFunnel,
   handleActualizarInvitadoFunnel
 } from "./invitados_funnel.js";
+import {
+  handleListNetworkets,
+  handleCrearNetworket,
+  handleActualizarNetworket,
+  handleEliminarNetworket
+} from "./funnel_networkets.js";
 
 export async function enrutar(request, env) {
   const url = new URL(request.url);
@@ -319,6 +325,13 @@ export async function enrutar(request, env) {
 
   const matchInvitadoFunnelId = pathname.match(/^\/api\/invitados-funnel\/([^/]+)$/);
   if (matchInvitadoFunnelId && metodo === "PUT") return handleActualizarInvitadoFunnel(request, env, decodeURIComponent(matchInvitadoFunnelId[1]));
+
+  if (pathname === "/api/networkets" && metodo === "GET") return handleListNetworkets(request, env);
+  if (pathname === "/api/networkets" && metodo === "POST") return handleCrearNetworket(request, env);
+
+  const matchNetworketId = pathname.match(/^\/api\/networkets\/([^/]+)$/);
+  if (matchNetworketId && metodo === "PUT") return handleActualizarNetworket(request, env, decodeURIComponent(matchNetworketId[1]));
+  if (matchNetworketId && metodo === "DELETE") return handleEliminarNetworket(request, env, decodeURIComponent(matchNetworketId[1]));
 
   // Tarjeta pública del networker con URL amigable (/card/su-slug). Es una
   // sola página estática (card.html) que lee el slug de la propia URL en

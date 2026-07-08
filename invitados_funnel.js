@@ -53,6 +53,7 @@ export async function handleRegistrarInvitadoFunnel(request, env) {
       telefono,
       correo,
       capituloId,
+      networketId: texto(body.networketId) || null,
       fechaNetworket: body.fechaNetworket ? new Date(body.fechaNetworket) : null,
       invitadoPorNombre: texto(body.invitadoPorNombre),
       invitadoPorTelefono: soloDigitos(body.invitadoPorTelefono || ""),

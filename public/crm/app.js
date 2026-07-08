@@ -1099,39 +1099,178 @@ function abrirFormVisitante(visitante) {
 // ---------- Invitados Funnel ----------
 async function renderInvitados(cont) {
   const puedeCrear = puede("invitados", "crear");
+  const puedeEditar = puede("invitados", "editar");
+
   cont.innerHTML = `
     <div class="vista-header">
-      <div><div class="vista-titulo">Invitados</div><div class="vista-sub">Prospectos que llegaron a través del funnel de captación</div></div>
-      ${puedeCrear ? '<button class="btn-primario" id="btn-generar-enlace">🔗 Generar enlace</button>' : ""}
+      <div><div class="vista-titulo">Invitados</div><div class="vista-sub">Funnels de captación por networket</div></div>
+      ${puedeCrear ? '<button class="btn-primario" id="btn-nuevo-nw">+ Nuevo networket</button>' : ""}
     </div>
+    <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:var(--texto-claro);text-transform:uppercase;letter-spacing:0.6px;">Networkets</div>
+    <div id="lista-networkets" style="margin-bottom:28px;">Cargando…</div>
+    <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:var(--texto-claro);text-transform:uppercase;letter-spacing:0.6px;">Invitados registrados</div>
     <div class="tabla-wrap"><table class="tabla-crm">
-      <thead><tr><th>Nombre</th><th>Profesión</th><th>Teléfono</th><th>Correo</th><th>Invitado por</th><th>Fecha Networket</th><th>Registrado</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Profesión</th><th>Teléfono</th><th>Correo</th><th>Networket</th><th>Registrado</th><th>Estado</th></tr></thead>
       <tbody id="tabla-invitados"></tbody>
     </table></div>`;
 
   if (puedeCrear) {
-    document.getElementById("btn-generar-enlace").addEventListener("click", () => abrirGenerarEnlaceInvitados());
+    document.getElementById("btn-nuevo-nw").addEventListener("click", () => abrirFormNetworket(null));
   }
 
-  const { ok, data } = await api(conCapitulo("/api/invitados-funnel"));
+  const [resNW, resInv] = await Promise.all([
+    api(conCapitulo("/api/networkets")),
+    api(conCapitulo("/api/invitados-funnel"))
+  ]);
+
+  const listaNW  = Array.isArray(resNW.data)  ? resNW.data  : [];
+  const listaInv = Array.isArray(resInv.data) ? resInv.data : [];
+
+  // --- Networkets ---
+  const contNW = document.getElementById("lista-networkets");
+  if (!resNW.ok || listaNW.length === 0) {
+    contNW.innerHTML = `<div style="font-size:13px;color:var(--texto-claro);padding:8px 0;">
+      No hay networkets guardados. Crea uno para generar tu primer enlace de captación.</div>`;
+  } else {
+    const conteos = {};
+    listaInv.forEach((inv) => { if (inv.networketId) conteos[inv.networketId] = (conteos[inv.networketId] || 0) + 1; });
+
+    contNW.innerHTML = `<div style="display:grid;gap:10px;">${listaNW.map((nw) => {
+      const count  = conteos[String(nw._id)] || 0;
+      const fLabel = nw.fechaNetworket
+        ? new Date(nw.fechaNetworket).toLocaleDateString("es-GT", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+        : "—";
+      const inactivo = nw.activo === false ? `<span style="color:#C0392B;font-size:11px;"> · Inactivo</span>` : "";
+      return `
+      <div style="background:var(--blanco);border:1px solid var(--gris-borde);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-weight:700;font-size:14px;">📅 ${escapeHtml(fLabel)}${inactivo}</div>
+          <div style="font-size:12px;color:var(--texto-claro);margin-top:4px;">
+            ${escapeHtml(nw.nombreNetworker || "—")} · ${nw.cupos} cupos · ${count} inscrito${count !== 1 ? "s" : ""}${nw.videoId ? " · 🎥 Video" : ""}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn-secundario btn-copiar-nw" data-id="${nw._id}" style="padding:7px 12px;font-size:12px;">Copiar enlace</button>
+          ${puedeEditar ? `<button class="btn-secundario btn-editar-nw" data-id="${nw._id}" style="padding:7px 12px;font-size:12px;">Editar</button>` : ""}
+        </div>
+      </div>`;
+    }).join("")}</div>`;
+
+    contNW.querySelectorAll(".btn-copiar-nw").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nw = listaNW.find((n) => String(n._id) === btn.dataset.id);
+        if (!nw) return;
+        const p = new URLSearchParams();
+        p.set("net", nw._id);
+        p.set("cap", nw.capituloId);
+        p.set("nom_cap", capituloNombreActivo);
+        if (nw.fechaNetworket) p.set("fecha", new Date(nw.fechaNetworket).toISOString().slice(0, 10));
+        if (nw.nombreNetworker) p.set("inv", nw.nombreNetworker);
+        if (nw.cupos) p.set("cupos", nw.cupos);
+        if (nw.videoId) p.set("video", nw.videoId);
+        if (nw.telefonoNetworker) p.set("invtel", nw.telefonoNetworker);
+        const url = `${location.origin}/unete?${p.toString()}`;
+        navigator.clipboard.writeText(url)
+          .then(() => { btn.textContent = "¡Copiado!"; setTimeout(() => { btn.textContent = "Copiar enlace"; }, 2000); })
+          .catch(() => { prompt("Copia este enlace:", url); });
+      });
+    });
+
+    if (puedeEditar) {
+      contNW.querySelectorAll(".btn-editar-nw").forEach((btn) => {
+        btn.addEventListener("click", () => abrirFormNetworket(listaNW.find((n) => String(n._id) === btn.dataset.id)));
+      });
+    }
+  }
+
+  // --- Tabla de invitados ---
   const tbody = document.getElementById("tabla-invitados");
-  if (!ok || data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="estado-vacio">Todavía no hay invitados registrados desde el funnel.</td></tr>`;
+  if (!resInv.ok || listaInv.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="estado-vacio">Todavía no hay invitados registrados desde el funnel.</td></tr>`;
     return;
   }
-  tbody.innerHTML = data.map((inv) => `
+  tbody.innerHTML = listaInv.map((inv) => {
+    const nw = listaNW.find((n) => String(n._id) === inv.networketId);
+    const fechaLabel = nw?.fechaNetworket
+      ? new Date(nw.fechaNetworket).toLocaleDateString("es-GT", { day: "numeric", month: "short" })
+      : (inv.fechaNetworket ? formatFecha(inv.fechaNetworket) : "—");
+    return `
     <tr data-id="${inv._id}" style="cursor:pointer;">
       <td><strong>${escapeHtml(inv.nombre)}</strong></td>
       <td>${escapeHtml(inv.profesion || "—")}</td>
       <td>${escapeHtml(inv.telefono)}</td>
       <td>${escapeHtml(inv.correo || "—")}</td>
-      <td>${escapeHtml(inv.invitadoPorNombre || "—")}</td>
-      <td>${formatFecha(inv.fechaNetworket)}</td>
+      <td>${escapeHtml(fechaLabel)}</td>
       <td>${formatFecha(inv.creadoEn)}</td>
       <td>${pill(inv.estado || "nuevo", inv.estado || "nuevo")}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
   tbody.querySelectorAll("tr").forEach((tr) => {
-    tr.addEventListener("click", () => abrirDetalleInvitado(data.find((i) => i._id === tr.dataset.id)));
+    tr.addEventListener("click", () => abrirDetalleInvitado(listaInv.find((i) => i._id === tr.dataset.id)));
+  });
+}
+
+function abrirFormNetworket(nw) {
+  const esEdicion = Boolean(nw);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const fechaVal = nw?.fechaNetworket ? new Date(nw.fechaNetworket).toISOString().slice(0, 10) : hoy;
+
+  abrirPanel(esEdicion ? "Editar networket" : "Nuevo networket", `
+    <div class="campo"><label>Fecha del networket *</label>
+      <input type="date" id="nw-fecha" value="${fechaVal}">
+    </div>
+    <div class="campo"><label>Nombre de quien invita</label>
+      <input id="nw-nombre" value="${escapeHtml(nw?.nombreNetworker || usuarioActual?.nombre || "")}" placeholder="Tu nombre">
+    </div>
+    <div class="campo-fila">
+      <div class="campo"><label>Cupos disponibles</label>
+        <input type="number" id="nw-cupos" value="${nw?.cupos || 5}" min="1" max="99">
+      </div>
+      <div class="campo"><label>ID video YouTube (opcional)</label>
+        <input id="nw-video" value="${escapeHtml(nw?.videoId || "")}" placeholder="Ej: dQw4w9WgXcQ">
+      </div>
+    </div>
+    ${esEdicion ? `<div class="campo">
+      <label class="campo-checkbox" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="nw-activo" ${nw?.activo !== false ? "checked" : ""}> Enlace activo
+      </label>
+    </div>` : ""}
+    <div class="panel-acciones">
+      <button class="btn-primario" id="btn-guardar-nw">${esEdicion ? "Guardar cambios" : "Crear networket"}</button>
+      ${esEdicion ? `<button class="btn-secundario" id="btn-eliminar-nw" style="color:#C0392B;border-color:#C0392B;">Eliminar</button>` : ""}
+      <button class="btn-secundario" id="btn-cancelar-panel">Cancelar</button>
+    </div>
+    <p class="form-mensaje" id="form-nw-msg"></p>
+  `);
+
+  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
+
+  if (esEdicion) {
+    document.getElementById("btn-eliminar-nw").addEventListener("click", async () => {
+      if (!confirm("¿Eliminar este networket? Los invitados registrados no se borran.")) return;
+      const { ok, data } = await api(`/api/networkets/${nw._id}`, { method: "DELETE" });
+      if (!ok) { alert(data.error || "No se pudo eliminar."); return; }
+      cerrarPanel();
+      await renderVista();
+    });
+  }
+
+  document.getElementById("btn-guardar-nw").addEventListener("click", async () => {
+    const cuerpo = {
+      fechaNetworket: document.getElementById("nw-fecha").value,
+      nombreNetworker: document.getElementById("nw-nombre").value.trim(),
+      cupos: parseInt(document.getElementById("nw-cupos").value, 10) || 5,
+      videoId: document.getElementById("nw-video").value.trim(),
+      capituloId: capituloIdActivo
+    };
+    if (esEdicion) cuerpo.activo = document.getElementById("nw-activo").checked;
+
+    const msg = document.getElementById("form-nw-msg");
+    const ruta = esEdicion ? `/api/networkets/${nw._id}` : "/api/networkets";
+    const { ok, data } = await api(ruta, { method: esEdicion ? "PUT" : "POST", body: JSON.stringify(cuerpo) });
+    if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
+    cerrarPanel();
+    await renderVista();
   });
 }
 
@@ -1174,67 +1313,6 @@ function abrirDetalleInvitado(inv) {
     if (!ok) { msg.className = "form-mensaje error"; msg.textContent = data.error || "No se pudo guardar."; return; }
     cerrarPanel();
     await renderVista();
-  });
-}
-
-function abrirGenerarEnlaceInvitados() {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const nombreNW = escapeHtml(usuarioActual?.nombre || "");
-  const telNW = usuarioActual?.telefono || "";
-  abrirPanel("Generar enlace de captación", `
-    <p style="font-size:13px;color:var(--texto-claro);margin-bottom:16px;">
-      Genera un enlace único para invitar personas al próximo Networket. Compártelo por WhatsApp, correo o redes sociales.
-    </p>
-    <div class="campo"><label>Fecha del networket *</label><input type="date" id="gl-fecha" value="${hoy}"></div>
-    <div class="campo"><label>Tu nombre (quien invita)</label><input id="gl-nombre" value="${nombreNW}" placeholder="Nombre del networker"></div>
-    <div class="campo"><label>Cupos disponibles</label><input type="number" id="gl-cupos" value="5" min="1" max="99"></div>
-    <div class="campo"><label>ID del video de YouTube (opcional)</label>
-      <input id="gl-video" placeholder="Ej: dQw4w9WgXcQ (solo el ID, no la URL completa)">
-    </div>
-    <div class="campo"><label>Enlace generado</label>
-      <div style="display:flex;gap:8px;align-items:stretch;">
-        <input id="gl-url" readonly style="font-size:11px;background:var(--gris-claro);flex:1;">
-        <button class="btn-secundario" id="btn-copiar-gl" style="white-space:nowrap;padding:10px 14px;flex-shrink:0;">Copiar</button>
-      </div>
-    </div>
-    <div class="panel-acciones" style="margin-top:6px;">
-      <button class="btn-primario" id="btn-generar-gl">Actualizar</button>
-      <button class="btn-secundario" id="btn-cancelar-panel">Cerrar</button>
-    </div>
-  `);
-  document.getElementById("btn-cancelar-panel").addEventListener("click", cerrarPanel);
-
-  function generarUrl() {
-    const p = new URLSearchParams();
-    p.set("cap", capituloIdActivo);
-    p.set("nom_cap", capituloNombreActivo);
-    const fecha = document.getElementById("gl-fecha").value;
-    const nombre = document.getElementById("gl-nombre").value.trim();
-    const cupos = document.getElementById("gl-cupos").value || "5";
-    const video = document.getElementById("gl-video").value.trim();
-    if (fecha) p.set("fecha", fecha);
-    if (nombre) p.set("inv", nombre);
-    if (telNW) p.set("invtel", telNW);
-    if (cupos) p.set("cupos", cupos);
-    if (video) p.set("video", video);
-    document.getElementById("gl-url").value = `${location.origin}/unete?${p.toString()}`;
-  }
-
-  generarUrl();
-  document.getElementById("btn-generar-gl").addEventListener("click", generarUrl);
-  ["gl-fecha", "gl-nombre", "gl-cupos", "gl-video"].forEach((id) =>
-    document.getElementById(id).addEventListener("input", generarUrl)
-  );
-  document.getElementById("btn-copiar-gl").addEventListener("click", async () => {
-    const url = document.getElementById("gl-url").value;
-    try {
-      await navigator.clipboard.writeText(url);
-      const btn = document.getElementById("btn-copiar-gl");
-      btn.textContent = "¡Copiado!";
-      setTimeout(() => { btn.textContent = "Copiar"; }, 2000);
-    } catch {
-      document.getElementById("gl-url").select();
-    }
   });
 }
 
